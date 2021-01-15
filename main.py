@@ -2,6 +2,7 @@ import argparse
 import torch
 import dgl
 import numpy as np
+import scipy.sparse as sp
 
 from qm9 import QM9
 from modules.dimenet import DimeNet
@@ -11,8 +12,46 @@ from torch.utils.data import DataLoader
 def _collate_fn(batch):
     graphs, labels = map(list, zip(*batch))
     g = dgl.batch(graphs)
+    
+    data = {}
+
+    dst, src = g.edges()
+    edgeid_to_target, edgeid_to_source = dst.numpy(), src.numpy()
+
+    # Target (i) and source (j) nodes of edges
+    data['idnb_i'] = dst.type(torch.long)
+    data['idnb_j'] = src.type(torch.long)
+
+    # Indices of triplets k->j->i
+    adj_matrix = g.adj(scipy_fmt='csr')
+
+    degree = g.out_degrees().numpy()
+    ntriplets = degree[edgeid_to_source]
+    id3ynb_i = np.repeat(edgeid_to_target, ntriplets)
+    id3ynb_j = np.repeat(edgeid_to_source, ntriplets)
+    id3ynb_k = adj_matrix[edgeid_to_source].nonzero()[1]
+
+    # Indices of triplets that are not i->j->i
+    id3_y_to_d, = (id3ynb_i != id3ynb_k).nonzero()
+    data['id3dnb_i'] = torch.LongTensor(id3ynb_i[id3_y_to_d])
+    data['id3dnb_j'] = torch.LongTensor(id3ynb_j[id3_y_to_d])
+    data['id3dnb_k'] = torch.LongTensor(id3ynb_k[id3_y_to_d])
+
+    atomids_to_edgeid = sp.csr_matrix(
+            (np.arange(adj_matrix.nnz), adj_matrix.indices, adj_matrix.indptr),
+            shape=adj_matrix.shape)
+    
+    # Edge indices for interactions
+    # j->i => k->j
+    data['id_expand_kj'] = torch.LongTensor(atomids_to_edgeid[edgeid_to_source, :].data[id3_y_to_d])
+    # j->i => k->j => j->i
+    data['id_reduce_ji'] = atomids_to_edgeid[edgeid_to_source, :].tocoo().row[id3_y_to_d]
+    
+    N = len(g.ndata['Z'])
+    data['batch_seg'] = np.repeat(np.arange(len(batch)), N)
+
     labels = torch.tensor(labels, dtype=torch.float32)
-    return g, labels
+    return g, data, labels
 
 def mae_loss(predictions, labels):
     return torch.abs(predictions - labels).mean()
@@ -40,10 +79,9 @@ def main():
                     num_dense_output=args.num_dense_output,
                     num_targets=args.num_targets)
 
-    # for g, labels in dataloader:
-    g, label = dataset[3]
-    logits = model(g)
-    print(g, label)
+    for g, data, labels in dataloader:
+        logits = model(g, data)
+        break
 
 if __name__ == "__main__":
     """

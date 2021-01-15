@@ -80,3 +80,5 @@ python main.py
   - id_expand_kj
   - id_expand_ji
 * get_dataset: a generator that returns batch (molacular graphs, labels)
+* DGLWarning: DGLGraph.edge_id is deprecated. Please use DGLGraph.edge_ids.
+* dgl存2-hop的特征没搞定

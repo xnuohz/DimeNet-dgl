@@ -10,24 +10,7 @@ from modules.spherical_basis_layer import SphericalBasisLayer
 from modules.embedding_block import EmbeddingBlock
 from modules.output_block import OutputBlock
 from modules.interaction_block import InteractionBlock
-
-
-
-def calculate_interatomic_distances(R, idx_i, idx_j):
-    Ri, Rj = R[idx_i], R[idx_j]
-    Dij = torch.sqrt(F.relu(torch.sum((Ri - Rj) ** 2), -1))
-    return Dij
-
-
-def calculate_neighbor_angles(R, id3_i, id3_j, id3_k):
-    Ri, Rj, Rk = R[id3_i], R[id3_j], R[id3_k]
-    R1, R2 = Rj - Ri, Rk - Rj
-    x = torch.sum(R1 * R2, axis=-1)
-    y = torch.cross(R1, R2)
-    y = torch.norm(y, axis=-1)
-    angle = torch.atan2(y, x)
-    return angle
-
+from modules.basis_utils import calculate_interatomic_distances, calculate_neighbor_angles
 
 class DimeNet(nn.Module):
     """
@@ -82,10 +65,10 @@ class DimeNet(nn.Module):
                                           cutoff=cutoff,
                                           envelope_exponent=envelope_exponent)
 
-        # self.sbf_layer = SphericalBasisLayer(num_spherical=num_spherical,
-        #                                      num_radial=num_radial,
-        #                                      cutoff=cutoff,
-        #                                      envelope_exponent=envelope_exponent)
+        self.sbf_layer = SphericalBasisLayer(num_spherical=num_spherical,
+                                             num_radial=num_radial,
+                                             cutoff=cutoff,
+                                             envelope_exponent=envelope_exponent)
         
         # embedding block
         # self.emb_block = EmbeddingBlock(emb_size=emb_size,
@@ -112,56 +95,60 @@ class DimeNet(nn.Module):
         #                      activation=activation) for _ in range(num_blocks)
         # })
     
-    def forward(self, g):
+    def forward(self, g, data):
         Z, R = g.ndata['Z'], g.ndata['R']
-
-        adj = g.adj(scipy_fmt='csr')
-        degree = g.out_degrees()
-
-        dst, src = g.edges()
-        dst, src = dst.type(torch.long), src.type(torch.long)
-        ntriplets = degree[src]
+        # add rbf features for each edge in one batch graph, [num_radial,]
+        g = self.rbf_layer(g)
+        print(g)
         
-        id3ynb_i = dst.repeat(ntriplets)
-        id3ynb_j = src.repeat(ntriplets)
-        id3ynb_k = adj[src].nonzero()[1]
-
-        print(id3ynb_k)
-        
-        # idnb_i = edgeid_to_target.type(torch.long)
-        # idnb_j = edgeid_to_source.type(torch.long)
-
-        idnb_i = edgeid_to_target
-        idnb_j = edgeid_to_source
-
-        # all i -> j -> k
-        id3_y_to_d = (id3ynb_i != id3ynb_k).nonzero()
-        id3dnb_i = id3ynb_i[id3_y_to_d]
-        id3dnb_j = id3ynb_j[id3_y_to_d]
-        id3dnb_k = id3ynb_k[id3_y_to_d]
-
-        # id_expand_kj = adj[edgeid_to_source, :].data[id3_y_to_d]
-
-        # id_reduce_ji = inputs.id_reduce_ji
-        # batch_seg = inputs.batch_seg
+        idnb_i = data['idnb_i']
+        idnb_j = data['idnb_j']
+        id3dnb_i = data['id3dnb_i']
+        id3dnb_j = data['id3dnb_j']
+        id3dnb_k = data['id3dnb_k']
+        id_expand_kj = data['id_expand_kj']
+        id_reduce_ji = data['id_reduce_ji']
+        batch_seg = data['batch_seg']
 
         # Calculate distances
-        Dij = calculate_interatomic_distances(R, idnb_i, idnb_j)  # float value
-        rbf = self.rbf_layer(Dij)  # [num_radial,]
+        Dij = calculate_interatomic_distances(R, idnb_i, idnb_j)  # [batch edges]
+
+        # print('id3dnb_i')
+        # print(type(id3dnb_i), id3dnb_i.size())
+        # print(id3dnb_i)
+        # print('id3dnb_j')
+        # print(type(id3dnb_j), id3dnb_j.size())
+        # print(id3dnb_j)
+        # print('id3dnb_k')
+        # print(type(id3dnb_k), id3dnb_k.size())
+        # print(id3dnb_k)
+        print('id_expand_kj')
+        print(type(id_expand_kj), id_expand_kj.size())
+        print(id_expand_kj)
+        print('Dij')
+        print(type(Dij), Dij.size())
+        print(Dij)
 
         # Calculate angles
-        # A_ijk = calculate_neighbor_angles(R, id3dnb_i, id3dnb_j, id3dnb_k)
-        # sbf = self.sbf_layer((Dij, A_ijk, id_expand_kj))
-        return 0
+        A_ijk = calculate_neighbor_angles(R, id3dnb_i, id3dnb_j, id3dnb_k)  # [batch edges,]
+        print('A_ijk')
+        print(type(A_ijk), A_ijk.size())
+        print(A_ijk)
+        sbf = self.sbf_layer((Dij, A_ijk, id_expand_kj))  # [batch edges, num_radial * num_spherical]
+
+        print('sbf')
+        print(type(sbf), sbf.size())
+        print(sbf)
 
         # Embedding block
-        x = self.emb_block((Z, rbf, idnb_i, idnb_j))
-        P = self.output_blocks[0]((x, rbf, idnb_i))
+        # x = self.emb_block((Z, rbf, idnb_i, idnb_j))
+        return 0
+        P = self.output_blocks[0]((x, rbf, dst))
 
         # Interaction blocks
         for i in range(self.num_blocks):
             x = self.int_blocks[i]((x, rbf, sbf, id_expand_kj, id_reduce_ji))
-            P += self.output_blocks[i + 1]([x, rbf, idnb_i])
+            P += self.output_blocks[i + 1]([x, rbf, dst])
 
         P = scatter_add(P, batch_seg, dim=0)
 
