@@ -60,25 +60,6 @@ python main.py
 | MAE(DimeNet in Table 1) | 0.0286 | 0.0469 | 27.8 | 19.7 | 34.8 | 0.331 | 1.29 | 8.02 | 7.89 | 8.11 | 8.98 | 0.0249 |
 | MAE(DGL) |  |  |  |  |  |  |  |  |  |  |  |  |
 
-### DataContainer
+### QA
 
-1. collate_fn: do rbf and sbf
-2. message passing on edges
-    - line graph, https://docs.dgl.ai/generated/dgl.line_graph.html#dgl.line_graph
-
-* molecular graphs:
-  - labels
-  - N
-  - Z
-  - R
-  - batch_seg
-  - idnb_i: target node
-  - idnb_j: source node
-  - id3dnb_i
-  - id3dnb_j
-  - id3dnb_k
-  - id_expand_kj
-  - id_expand_ji
-* get_dataset: a generator that returns batch (molacular graphs, labels)
-* DGLWarning: DGLGraph.edge_id is deprecated. Please use DGLGraph.edge_ids.
-* dgl存2-hop的特征没搞定
+* 2-hop angle, node's src and dst in line_graph
