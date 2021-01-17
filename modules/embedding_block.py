@@ -8,26 +8,26 @@ class EmbeddingBlock(nn.Module):
                 activation=None):
         super(EmbeddingBlock, self).__init__()
 
-        self.emb_size = emb_size
         self.activation = activation
         self.embedding = nn.Embedding(100, emb_size, padding_idx=0)
         self.dense_rbf = nn.Linear(num_radial, emb_size)
         self.dense = nn.Linear(emb_size * 3, emb_size)
 
-    def forward(self, inputs):
-        Z, rbf, idnb_i, idnb_j = inputs
+    def edge_init(self, edges):
+        rbf = self.dense_rbf(edges.data['rbf'])
 
-        rbf = self.dense_rbf(rbf)
         if self.activation is not None:
             rbf = self.activation(rbf)
-        x = self.embedding(Z)
 
-        x1 = x[idnb_i]
-        x2 = x[idnb_j]
+        m = torch.cat([edges.src['h'], edges.dst['h'], rbf], dim=-1)
+        m = self.dense(m)
 
-        x = torch.cat((x1, x2, rbf), dim=-1)
-        x = self.dense(x)
         if self.activation is not None:
-            x = self.activation(x)
+            m = self.activation(m)
 
-        return x
+        return {'m': m}
+
+    def forward(self, g):
+        g.apply_nodes(lambda nodes: {'h': self.embedding(nodes.data['Z'])})
+        g.apply_edges(self.edge_init)
+        return g
