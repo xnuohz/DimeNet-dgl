@@ -1,6 +1,6 @@
 import torch.nn as nn
-
-from torch_scatter import scatter_add
+import dgl
+import dgl.function as fn
 
 class OutputBlock(nn.Module):
     def __init__(self,
@@ -17,16 +17,22 @@ class OutputBlock(nn.Module):
             nn.Linear(emb_size, emb_size) for _ in range(num_dense)
         ])
         self.dense_final = nn.Linear(emb_size, num_targets, bias=False)
+    
+    def node_udf(self, nodes):
+        t = nodes.data['t']
 
-    def forward(self, inputs):
-        x, rbf, idnb_i, n_atoms = inputs
-
-        g = self.dense_rbf(rbf)
-        x = g * x
-        x = scatter_add(x, idnb_i, dim=0)
         for layer in self.dense_layers:
-            x = layer(x)
+            t = layer(t)
             if self.activation is not None:
-                x = self.activation(x)
-        x = self.dense_final(x)
-        return x
+                t = self.activation(t)
+        
+        t = self.dense_final(t)
+        return {'p': t}
+
+    def forward(self, g):
+        with g.local_scope():
+            g.edata['rbf'] = self.dense_rbf(g.edata['rbf'])
+            g.edata['m'] *= g.edata['rbf']
+            g.update_all(fn.copy_e('m', 'x'), fn.sum('x', 't'))
+            g.apply_nodes(self.node_udf)
+            return dgl.readout_nodes(g, 'p')
