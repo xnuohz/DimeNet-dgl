@@ -20,7 +20,6 @@ class OutputBlock(nn.Module):
     
     def node_udf(self, nodes):
         t = nodes.data['t']
-
         for layer in self.dense_layers:
             t = layer(t)
             if self.activation is not None:
@@ -31,8 +30,7 @@ class OutputBlock(nn.Module):
 
     def forward(self, g):
         with g.local_scope():
-            g.edata['rbf'] = self.dense_rbf(g.edata['rbf'])
-            g.edata['m'] *= g.edata['rbf']
+            g.edata['m'] *= self.dense_rbf(g.edata['rbf'])
             g.update_all(fn.copy_e('m', 'x'), fn.sum('x', 't'))
             g.apply_nodes(self.node_udf)
             return dgl.readout_nodes(g, 'p')

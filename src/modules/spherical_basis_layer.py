@@ -39,19 +39,24 @@ class SphericalBasisLayer(nn.Module):
             for j in range(num_radial):
                 self.bessel_funcs.append(sym.lambdify([x], self.bessel_formulas[i][j], modules))
     
-    def forward(self, inputs):
-        d, Angles, id_expand_kj = inputs
-        
-        d_scaled = d / self.cutoff
-        rbf = [f(d_scaled) for f in self.bessel_funcs]
-        rbf = torch.stack(rbf, dim=1)
+    # def forward(self, inputs):
+    #     d, Angles, id_expand_kj = inputs  # 20, 60, 60
+    #     d_scaled = d / self.cutoff
+    #     rbf = [f(d_scaled) for f in self.bessel_funcs]
+    #     rbf = torch.stack(rbf, dim=1)  # [20, 42]
 
-        d_cutoff = self.envelope(d_scaled)
-        rbf_env = d_cutoff[:, None] * rbf
-        rbf_env = rbf_env[id_expand_kj.long()]
+    #     d_cutoff = self.envelope(d_scaled)  # [20,]
+    #     rbf_env = d_cutoff[:, None] * rbf  # [20, 42]
+    #     rbf_env = rbf_env[id_expand_kj.long()]  # [60, 42]
 
-        cbf = [f(Angles) for f in self.sph_funcs]
-        cbf = torch.stack(cbf, dim=1)
-        cbf = cbf.repeat_interleave(self.num_radial, dim=1)
+    #     cbf = [f(Angles) for f in self.sph_funcs]
+    #     cbf = torch.stack(cbf, dim=1)  # [60, 7]
+    #     cbf = cbf.repeat_interleave(self.num_radial, dim=1)  # [60, 42]
 
-        return rbf_env * cbf
+    #     return rbf_env * cbf
+
+    def get_bessel_funcs(self):
+        return self.bessel_funcs
+
+    def get_sph_funcs(self):
+        return self.sph_funcs

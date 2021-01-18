@@ -1,71 +1,28 @@
 import argparse
 import torch
-import dgl
 import numpy as np
 import scipy.sparse as sp
 
 from qm9 import QM9
 from modules.dimenet import DimeNet
+from utils import _collate_fn, mae_loss
 from torch.utils.data import DataLoader
-
-# create collate_fn
-def _collate_fn(batch):
-    graphs, labels = map(list, zip(*batch))
-    g = dgl.batch(graphs)
-    
-    data = {}
-
-    dst, src = g.edges()
-    edgeid_to_target, edgeid_to_source = dst.numpy(), src.numpy()
-
-    # Target (i) and source (j) nodes of edges
-    data['idnb_i'] = dst.type(torch.long)
-    data['idnb_j'] = src.type(torch.long)
-
-    # Indices of triplets k->j->i
-    adj_matrix = g.adj(scipy_fmt='csr')
-
-    degree = g.out_degrees().numpy()
-    ntriplets = degree[edgeid_to_source]
-    id3ynb_i = np.repeat(edgeid_to_target, ntriplets)
-    id3ynb_j = np.repeat(edgeid_to_source, ntriplets)
-    id3ynb_k = adj_matrix[edgeid_to_source].nonzero()[1]
-
-    # Indices of triplets that are not i->j->i
-    id3_y_to_d, = (id3ynb_i != id3ynb_k).nonzero()
-    data['id3dnb_i'] = torch.LongTensor(id3ynb_i[id3_y_to_d])
-    data['id3dnb_j'] = torch.LongTensor(id3ynb_j[id3_y_to_d])
-    data['id3dnb_k'] = torch.LongTensor(id3ynb_k[id3_y_to_d])
-
-    atomids_to_edgeid = sp.csr_matrix(
-            (np.arange(adj_matrix.nnz), adj_matrix.indices, adj_matrix.indptr),
-            shape=adj_matrix.shape)
-    
-    # Edge indices for interactions
-    # j->i => k->j
-    data['id_expand_kj'] = torch.LongTensor(atomids_to_edgeid[edgeid_to_source, :].data[id3_y_to_d])
-    # j->i => k->j => j->i
-    data['id_reduce_ji'] = atomids_to_edgeid[edgeid_to_source, :].tocoo().row[id3_y_to_d]
-    
-    N = len(g.ndata['Z'])
-    data['batch_seg'] = np.repeat(np.arange(len(batch)), N)
-
-    labels = torch.tensor(labels, dtype=torch.float32)
-    return g, data, labels
-
-def mae_loss(predictions, labels):
-    return torch.abs(predictions - labels).mean()
+from dgl.data.utils import split_dataset
 
 def main():
     dataset = QM9(cutoff=args.cutoff, label_keys=['mu'])
+    # data split
+    train_data, valid_data, test_data = split_dataset(dataset, random_state=42)
+    # data loader
+    train_loader = DataLoader(train_data, batch_size=1, shuffle=False, collate_fn=_collate_fn)
+    valid_loader = DataLoader(valid_data, batch_size=1, shuffle=False, collate_fn=_collate_fn)
+    test_loader = DataLoader(test_data, batch_size=1, shuffle=False, collate_fn=_collate_fn)
     
     # check cuda
     if args.gpu >= 0 and torch.cuda.is_available():
         device = 'cuda:{}'.format(args.gpu)
     else:
         device = 'cpu'
-
-    dataloader = DataLoader(dataset, batch_size=1, shuffle=False, collate_fn=_collate_fn)
 
     model = DimeNet(emb_size=args.emb_size,
                     num_blocks=args.num_blocks,
@@ -79,7 +36,7 @@ def main():
                     num_dense_output=args.num_dense_output,
                     num_targets=args.num_targets)
 
-    for g, data, labels in dataloader:
+    for g, data, labels in train_loader:
         logits = model(g, data)
         break
 

@@ -71,47 +71,58 @@ class DimeNet(nn.Module):
                                              envelope_exponent=envelope_exponent)
         
         # embedding block
-        # self.emb_block = EmbeddingBlock(emb_size=emb_size,
-        #                                 num_radial=num_radial,
-        #                                 activation=activation)
+        self.emb_block = EmbeddingBlock(emb_size=emb_size,
+                                        num_radial=num_radial,
+                                        activation=activation)
         
         # output block
-        # self.output_blocks = nn.ModuleList({
-        #     OutputBlock(emb_size=emb_size,
-        #                 num_radial=num_radial,
-        #                 num_dense=num_dense_output,
-        #                 num_targets=num_targets,
-        #                 activation=activation) for _ in range(num_blocks + 1)
-        # })
+        self.output_blocks = nn.ModuleList({
+            OutputBlock(emb_size=emb_size,
+                        num_radial=num_radial,
+                        num_dense=num_dense_output,
+                        num_targets=num_targets,
+                        activation=activation) for _ in range(num_blocks + 1)
+        })
 
         # interaction block
-        # self.interaction_blocks = nn.ModuleList({
-        #     InteractionBlock(emb_size=emb_size,
-        #                      num_radial=num_radial,
-        #                      num_spherical=num_spherical,
-        #                      num_bilinear=num_bilinear,
-        #                      num_before_skip=num_before_skip,
-        #                      num_after_skip=num_after_skip,
-        #                      activation=activation) for _ in range(num_blocks)
-        # })
+        self.interaction_blocks = nn.ModuleList({
+            InteractionBlock(emb_size=emb_size,
+                             num_radial=num_radial,
+                             num_spherical=num_spherical,
+                             cutoff=cutoff,
+                             envelope_exponent=envelope_exponent,
+                             num_bilinear=num_bilinear,
+                             num_before_skip=num_before_skip,
+                             num_after_skip=num_after_skip,
+                             sph_funcs=self.sbf_layer.get_sph_funcs(),
+                             activation=activation) for _ in range(num_blocks)
+        })
     
     def forward(self, g, data):
         Z, R = g.ndata['Z'], g.ndata['R']
         # add rbf features for each edge in one batch graph, [num_radial,]
         g = self.rbf_layer(g)
-        print(g)
+        # Embedding block
+        g = self.emb_block(g)
+        # Output block
+        P = self.output_blocks[0](g)  # [batch_size, num_targets]
+        # Interaction blocks
+        for i in range(self.num_blocks):
+            g = self.interaction_blocks[i](g)
+            # P += self.output_blocks[i + 1]([x, rbf, dst])
+            break
         
-        idnb_i = data['idnb_i']
-        idnb_j = data['idnb_j']
-        id3dnb_i = data['id3dnb_i']
-        id3dnb_j = data['id3dnb_j']
-        id3dnb_k = data['id3dnb_k']
-        id_expand_kj = data['id_expand_kj']
-        id_reduce_ji = data['id_reduce_ji']
-        batch_seg = data['batch_seg']
+        # idnb_i = data['idnb_i']
+        # idnb_j = data['idnb_j']
+        # id3dnb_i = data['id3dnb_i']
+        # id3dnb_j = data['id3dnb_j']
+        # id3dnb_k = data['id3dnb_k']
+        # id_expand_kj = data['id_expand_kj']
+        # id_reduce_ji = data['id_reduce_ji']
+        # batch_seg = data['batch_seg']
 
         # Calculate distances
-        Dij = calculate_interatomic_distances(R, idnb_i, idnb_j)  # [batch edges]
+        # Dij = calculate_interatomic_distances(R, idnb_i, idnb_j)  # [batch edges]
 
         # print('id3dnb_i')
         # print(type(id3dnb_i), id3dnb_i.size())
@@ -122,28 +133,24 @@ class DimeNet(nn.Module):
         # print('id3dnb_k')
         # print(type(id3dnb_k), id3dnb_k.size())
         # print(id3dnb_k)
-        print('id_expand_kj')
-        print(type(id_expand_kj), id_expand_kj.size())
-        print(id_expand_kj)
-        print('Dij')
-        print(type(Dij), Dij.size())
-        print(Dij)
+        # print('id_expand_kj')
+        # print(type(id_expand_kj), id_expand_kj.size())
+        # print(id_expand_kj)
+        # print('Dij')
+        # print(type(Dij), Dij.size())
+        # print(Dij)
 
         # Calculate angles
-        A_ijk = calculate_neighbor_angles(R, id3dnb_i, id3dnb_j, id3dnb_k)  # [batch edges,]
-        print('A_ijk')
-        print(type(A_ijk), A_ijk.size())
-        print(A_ijk)
-        sbf = self.sbf_layer((Dij, A_ijk, id_expand_kj))  # [batch edges, num_radial * num_spherical]
+        # A_ijk = calculate_neighbor_angles(R, id3dnb_i, id3dnb_j, id3dnb_k)  # [batch edges,]
+        # print('A_ijk')
+        # print(type(A_ijk), A_ijk.size())
+        # print(A_ijk)
+        # sbf = self.sbf_layer((Dij, A_ijk, id_expand_kj))  # [batch edges, num_radial * num_spherical]
 
-        print('sbf')
-        print(type(sbf), sbf.size())
-        print(sbf)
-
-        # Embedding block
-        # x = self.emb_block((Z, rbf, idnb_i, idnb_j))
+        # print('sbf')
+        # print(type(sbf), sbf.size())
+        # print(sbf)
         return 0
-        P = self.output_blocks[0]((x, rbf, dst))
 
         # Interaction blocks
         for i in range(self.num_blocks):
