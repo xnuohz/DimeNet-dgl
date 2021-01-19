@@ -58,7 +58,7 @@ The DGL's built-in QM9 dataset. Dataset summary:
 The following commands learn a neural network and predict on the test set.
 Training a DimeNet model on QM9 dataset.
 ```bash
-python main.py
+python src/main.py
 ```
 
 ### Performance
