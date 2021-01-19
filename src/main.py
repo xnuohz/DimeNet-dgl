@@ -15,16 +15,14 @@ from utils import _collate_fn
 def train(model, opt, loss_fn, train_loader):
     model.train()
     epoch_loss = 0
-    with torch.autograd.set_detect_anomaly(True):
-        for g, labels in train_loader:
-            logits = model(g)
-            loss = loss_fn(logits, labels.view([-1, 1]))
-            epoch_loss += loss.data.item() * len(labels)
-            print(epoch_loss)
-            opt.zero_grad()
-            loss.backward()
-            # opt.step()
-            break
+    for g, labels in train_loader:
+        logits = model(g)
+        loss = loss_fn(logits, labels.view([-1, 1]))
+        epoch_loss += loss.data.item() * len(labels)
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+        break
 
     return epoch_loss / len(train_loader)
 
@@ -32,12 +30,10 @@ def train(model, opt, loss_fn, train_loader):
 def evaluate(model, valid_loader):
     model.eval()
     predictions_all, labels_all = [], []
-
     for g, labels in valid_loader:
         logits = model(g)
-        print(logits.size(), labels.size())
         labels_all.extend(labels)
-        predictions_all.extend(logits.view(-1,).cpu.numpy())
+        predictions_all.extend(logits.view(-1,).cpu().numpy())
     
     return np.array(predictions_all), np.array(labels_all)
 
@@ -45,7 +41,7 @@ def main():
     # load data
     dataset = QM9(label_keys=args.targets)
     # data split
-    train_data, valid_data, test_data = split_dataset(dataset, random_state=42)
+    train_data, valid_data, test_data = split_dataset(dataset, frac_list=[0.99, 0.00999, 0.00001], random_state=42)
     # data loader
     train_loader = DataLoader(train_data,
                               batch_size=args.batch_size,
@@ -61,7 +57,8 @@ def main():
                              batch_size=args.batch_size,
                              shuffle=False,
                              collate_fn=_collate_fn)
-    
+    # print(len(test_data))
+    # return
     # check cuda
     if args.gpu >= 0 and torch.cuda.is_available():
         device = 'cuda:{}'.format(args.gpu)
@@ -88,28 +85,28 @@ def main():
     best_model = copy.deepcopy(model)
     no_improvement = 0
 
-    train_loss = train(model, opt, loss_fn, train_loader)
+    for i in range(args.epochs):
+        train_loss = train(model, opt, loss_fn, test_loader)
+        predictions, labels = evaluate(model, test_loader)
 
-    # for i in range(args.epochs):
-    #     train_loss = train(model, opt, loss_fn, train_loader)
-    #     predictions, labels = evaluate(model, valid_loader)
+        cur_mae = mean_absolute_error(labels, predictions)
+        print('Epoch {} | Train Loss {:.4f} | Val MAE {:.4f}'.format(i, train_loss, cur_mae))
 
-    #     cur_mae = mean_absolute_error(labels, predictions)
-    #     print('Epoch {} | Train Loss {:.4f} | Val MAE {:.4f}'.format(j, train_loss, cur_mae))
+        if cur_mae > best_mae:
+            no_improvement += 1
+            if no_improvement == args.early_stopping:
+                    print('Early stop.')
+                    break
+        else:
+            no_improvement = 0
+            best_mae = cur_mae
+            best_model = copy.deepcopy(best_model)
+        
+        break
 
-    #     if cur_mae > best_mae:
-    #         no_improvement += 1
-    #         if no_improvement == args.early_stopping:
-    #                 print('Early stop.')
-    #                 break
-    #     else:
-    #         no_improvement = 0
-    #         best_mae = cur_mae
-    #         best_model = copy.deepcopy(best_model)
-
-    # predictions, labels = evaluate(best_model, test_loader)
-    # test_mae = mean_absolute_error(labels, predictions)
-    # print('Test MAE {:.4f}'.format(test_mae))
+    predictions, labels = evaluate(best_model, test_loader)
+    test_mae = mean_absolute_error(labels, predictions)
+    print('Test MAE {:.4f}'.format(test_mae))
 
 if __name__ == "__main__":
     """

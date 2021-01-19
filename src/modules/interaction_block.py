@@ -99,7 +99,7 @@ class InteractionBlock(nn.Module):
             g.ndata[k] = v
 
         # Transformations before skip connection
-        g.edata['m_update'] += g.edata['m']
+        g.edata['m_update'] = g.edata['m'] + g.edata['m_update']
         for layer in self.layers_before_skip:
             g.edata['m_update'] = layer(g.edata['m_update'])
         g.edata['m_update'] = self.final_before_skip(g.edata['m_update'])
@@ -107,7 +107,7 @@ class InteractionBlock(nn.Module):
             g.edata['m_update'] = self.activation(g.edata['m_update'])
 
         # Skip connection
-        g.edata['m'] += g.edata['m_update']
+        g.edata['m'] = g.edata['m_update'] + g.edata['m']
 
         # Transformations after skip connection
         for layer in self.layers_after_skip:

@@ -109,6 +109,6 @@ class DimeNet(nn.Module):
         # Interaction blocks
         for i in range(self.num_blocks):
             g = self.interaction_blocks[i](g)
-            P += self.output_blocks[i + 1](g)
+            P = P + self.output_blocks[i + 1](g)
         
         return P
