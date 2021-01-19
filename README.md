@@ -32,17 +32,25 @@ The DGL's built-in QM9 dataset. Dataset summary:
 
 ###### Model options
 ```
---emb-size          int     Embedding size used throughout the model.                              Default is 128.
---num-blocks        int     Number of building blocks to be stacked.                               Default is 6   
---num-bilinear      int     Third dimension of the bilinear layer tensor.                          Default is 8   
---num-spherical     int     Number of spherical harmonics.                                         Default is 7   
---num-radial        int     Number of radial basis functions.                                      Default is 6   
---envelope-exponent int     Shape of the smooth cutoff.                                            Default is 5   
---cutoff            float   Cutoff distance for interatomic interactions.                          Default is 5.0 
---num-before-skip   int     Number of residual layers in interaction block before skip connection. Default is 1   
---num-after-skip    int     Number of residual layers in interaction block after skip connection.  Default is 2   
---num-dense-output  int     Number of dense layers for the output blocks.                          Default is 3   
---num-targets       int     Number of targets to predict.                                          Default is 12  
+--emb-size          int   Embedding size used throughout the model.                              Default is 128
+--num-blocks        int   Number of building blocks to be stacked.                               Default is 6   
+--num-bilinear      int   Third dimension of the bilinear layer tensor.                          Default is 8   
+--num-spherical     int   Number of spherical harmonics.                                         Default is 7   
+--num-radial        int   Number of radial basis functions.                                      Default is 6   
+--envelope-exponent int   Shape of the smooth cutoff.                                            Default is 5   
+--cutoff            float Cutoff distance for interatomic interactions.                          Default is 5.0 
+--num-before-skip   int   Number of residual layers in interaction block before skip connection. Default is 1   
+--num-after-skip    int   Number of residual layers in interaction block after skip connection.  Default is 2   
+--num-dense-output  int   Number of dense layers for the output blocks.                          Default is 3   
+--targets           list  List of targets to predict.                                            Default is ['mu']
+```
+
+###### Training options
+```
+--lr             float Learning rate.                                Default is 0.001
+--batch-size     int   Batch size.                                   Default is 32
+--epochs         int   Training epochs.                              Default is 3000000
+--early-stopping int   Patient epochs to wait before early stopping. Default is 20
 ```
 
 ###### Examples
