@@ -55,7 +55,7 @@ class InteractionBlock(nn.Module):
             m = self.activation(m)
 
         # w: W * e_RBF \bigodot \sigma(W * m + b)
-        return {'w': rbf * m, 'rbf_env': torch.ones([20, 42])}
+        return {'w': rbf * m}
 
     def msg_func(self, edges):
         # Calculate angles k -> j -> i
@@ -66,20 +66,20 @@ class InteractionBlock(nn.Module):
         angle = torch.atan2(y, x)
         # Transform via angles
         cbf = [f(angle) for f in self.sph_funcs]
-        cbf = torch.stack(cbf, dim=1)  # [60, 7]
-        cbf = cbf.repeat_interleave(self.num_radial, dim=1)  # [60, 42]
-        sbf = edges.src['rbf_env'] * cbf  # [60, 42]
+        cbf = torch.stack(cbf, dim=1)  # [None, 7]
+        cbf = cbf.repeat_interleave(self.num_radial, dim=1)  # [None, 42]
+        sbf = edges.src['rbf_env'] * cbf  # [None, 42]
         # Transform via spherical basis
         sbf = self.dense_sbf(sbf)
 
         # # Apply bilinear layer to interactions and basis function activation
-        # [60, 8] * [60, 128] * [128, 8, 128] -> [60, 128]
+        # [None, 8] * [None, 128] * [128, 8, 128] -> [None, 128]
         x_kj = torch.einsum("wj,wl,ijl->wi", sbf, edges.src['m'], self.W_bilin)
-        # sbf [60, 42]
+        # sbf [None, 42]
         return {'x_kj': x_kj}
 
     def reduce_func(self, nodes):
-        # [20, 3, 128] -> [20, 128]
+        # [None, n_neighbors, 128] -> [None, 128]
         return {'m_update': nodes.mailbox['x_kj'].sum(1)}
 
     def forward(self, g):

@@ -1,20 +1,30 @@
 import torch
 import torch.nn as nn
 
+from modules.envelope import Envelope
+
 class EmbeddingBlock(nn.Module):
     def __init__(self,
-                emb_size,
-                num_radial,
-                activation=None):
+                 emb_size,
+                 num_radial,
+                 bessel_funcs,
+                 cutoff,
+                 envelope_exponent,
+                 num_atom_types=100,
+                 activation=None):
         super(EmbeddingBlock, self).__init__()
 
+        self.bessel_funcs = bessel_funcs
+        self.cutoff = cutoff
         self.activation = activation
-        self.embedding = nn.Embedding(100, emb_size, padding_idx=0)
+        self.envelope = Envelope(envelope_exponent)
+        self.embedding = nn.Embedding(num_atom_types, emb_size, padding_idx=0)
         self.dense_rbf = nn.Linear(num_radial, emb_size)
         self.dense = nn.Linear(emb_size * 3, emb_size)
 
-    def add_m_in_edge(self, edges):
-        """ msg emb init """
+    def edge_init(self, edges):
+        """ msg emb init: """
+        # m init
         rbf = self.dense_rbf(edges.data['rbf'])
         if self.activation is not None:
             rbf = self.activation(rbf)
@@ -23,10 +33,18 @@ class EmbeddingBlock(nn.Module):
         m = self.dense(m)
         if self.activation is not None:
             m = self.activation(m)
+        
+        # rbf_env init
+        d_scaled = edges.data['d'] / self.cutoff
+        rbf_env = [f(d_scaled) for f in self.bessel_funcs]
+        rbf_env = torch.stack(rbf_env, dim=1)
 
-        return {'m': m}
+        d_cutoff = self.envelope(d_scaled)
+        rbf_env = d_cutoff[:, None] * rbf_env
+
+        return {'m': m, 'rbf_env': rbf_env}
 
     def forward(self, g):
         g.apply_nodes(lambda nodes: {'h': self.embedding(nodes.data['Z'])})
-        g.apply_edges(self.add_m_in_edge)
+        g.apply_edges(self.edge_init)
         return g

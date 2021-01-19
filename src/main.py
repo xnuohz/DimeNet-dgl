@@ -1,22 +1,66 @@
 import argparse
-import torch
+import copy
 import numpy as np
-import scipy.sparse as sp
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
-from qm9 import QM9
-from modules.dimenet import DimeNet
-from utils import _collate_fn, mae_loss
 from torch.utils.data import DataLoader
 from dgl.data.utils import split_dataset
+from sklearn.metrics import mean_absolute_error
+from qm9 import QM9
+from modules.dimenet import DimeNet
+from utils import _collate_fn
+
+def train(model, opt, loss_fn, train_loader):
+    model.train()
+    epoch_loss = 0
+    with torch.autograd.set_detect_anomaly(True):
+        for g, labels in train_loader:
+            logits = model(g)
+            loss = loss_fn(logits, labels.view([-1, 1]))
+            epoch_loss += loss.data.item() * len(labels)
+            print(epoch_loss)
+            opt.zero_grad()
+            loss.backward()
+            # opt.step()
+            break
+
+    return epoch_loss / len(train_loader)
+
+@torch.no_grad()
+def evaluate(model, valid_loader):
+    model.eval()
+    predictions_all, labels_all = [], []
+
+    for g, labels in valid_loader:
+        logits = model(g)
+        print(logits.size(), labels.size())
+        labels_all.extend(labels)
+        predictions_all.extend(logits.view(-1,).cpu.numpy())
+    
+    return np.array(predictions_all), np.array(labels_all)
 
 def main():
-    dataset = QM9(cutoff=args.cutoff, label_keys=['mu'])
+    # load data
+    dataset = QM9(label_keys=args.targets)
     # data split
     train_data, valid_data, test_data = split_dataset(dataset, random_state=42)
     # data loader
-    train_loader = DataLoader(train_data, batch_size=1, shuffle=False, collate_fn=_collate_fn)
-    valid_loader = DataLoader(valid_data, batch_size=1, shuffle=False, collate_fn=_collate_fn)
-    test_loader = DataLoader(test_data, batch_size=1, shuffle=False, collate_fn=_collate_fn)
+    train_loader = DataLoader(train_data,
+                              batch_size=args.batch_size,
+                              shuffle=False,
+                              collate_fn=_collate_fn)
+
+    valid_loader = DataLoader(valid_data,
+                              batch_size=args.batch_size,
+                              shuffle=False,
+                              collate_fn=_collate_fn)
+
+    test_loader = DataLoader(test_data,
+                             batch_size=args.batch_size,
+                             shuffle=False,
+                             collate_fn=_collate_fn)
     
     # check cuda
     if args.gpu >= 0 and torch.cuda.is_available():
@@ -34,12 +78,38 @@ def main():
                     num_before_skip=args.num_before_skip,
                     num_after_skip=args.num_after_skip,
                     num_dense_output=args.num_dense_output,
-                    num_targets=args.num_targets)
+                    num_targets=len(args.targets))
+        
+    # model = model.to(device)
+    loss_fn = nn.L1Loss()
+    opt = optim.Adam(model.parameters(), lr=args.lr)
 
-    for g, labels in train_loader:
-        logits = model(g)
-        print(logits.size())
-        break
+    best_mae = 1e9
+    best_model = copy.deepcopy(model)
+    no_improvement = 0
+
+    train_loss = train(model, opt, loss_fn, train_loader)
+
+    # for i in range(args.epochs):
+    #     train_loss = train(model, opt, loss_fn, train_loader)
+    #     predictions, labels = evaluate(model, valid_loader)
+
+    #     cur_mae = mean_absolute_error(labels, predictions)
+    #     print('Epoch {} | Train Loss {:.4f} | Val MAE {:.4f}'.format(j, train_loss, cur_mae))
+
+    #     if cur_mae > best_mae:
+    #         no_improvement += 1
+    #         if no_improvement == args.early_stopping:
+    #                 print('Early stop.')
+    #                 break
+    #     else:
+    #         no_improvement = 0
+    #         best_mae = cur_mae
+    #         best_model = copy.deepcopy(best_model)
+
+    # predictions, labels = evaluate(best_model, test_loader)
+    # test_mae = mean_absolute_error(labels, predictions)
+    # print('Test MAE {:.4f}'.format(test_mae))
 
 if __name__ == "__main__":
     """
@@ -60,7 +130,15 @@ if __name__ == "__main__":
     parser.add_argument('--num-before-skip', type=int, default=1, help='Number of residual layers in interaction block before skip connection.')
     parser.add_argument('--num-after-skip', type=int, default=2, help='Number of residual layers in interaction block after skip connection.')
     parser.add_argument('--num-dense-output', type=int, default=3, help='Number of dense layers for the output blocks.')
-    parser.add_argument('--num-targets', type=int, default=12, help='Number of targets to predict.')
+    parser.add_argument('--targets', nargs='+', type=str, help='List of targets to predict.')
+
+    parser.set_defaults(targets=['mu'])
+    # training params
+    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
+    parser.add_argument('--batch-size', type=int, default=32, help='Batch size.')
+    # parser.add_argument('--epochs', type=int, default=3000000, help='Training epochs.')
+    parser.add_argument('--epochs', type=int, default=1, help='Training epochs.')
+    parser.add_argument('--early-stopping', type=int, default=20, help='Patient epochs to wait before early stopping.')
 
     args = parser.parse_args()
     print(args)

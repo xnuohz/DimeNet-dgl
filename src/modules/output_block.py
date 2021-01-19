@@ -7,7 +7,7 @@ class OutputBlock(nn.Module):
                  emb_size,
                  num_radial,
                  num_dense,
-                 num_targets=12,
+                 num_targets,
                  activation=None):
         super(OutputBlock, self).__init__()
 
@@ -30,7 +30,7 @@ class OutputBlock(nn.Module):
 
     def forward(self, g):
         with g.local_scope():
-            g.edata['m'] *= self.dense_rbf(g.edata['rbf'])
-            g.update_all(fn.copy_e('m', 'x'), fn.sum('x', 't'))
+            g.edata['tmp'] = g.edata['m'] * self.dense_rbf(g.edata['rbf'])
+            g.update_all(fn.copy_e('tmp', 'x'), fn.sum('x', 't'))
             g.apply_nodes(self.node_udf)
             return dgl.readout_nodes(g, 'p')

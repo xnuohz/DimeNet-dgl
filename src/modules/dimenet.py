@@ -71,6 +71,9 @@ class DimeNet(nn.Module):
         # embedding block
         self.emb_block = EmbeddingBlock(emb_size=emb_size,
                                         num_radial=num_radial,
+                                        bessel_funcs=self.sbf_layer.get_bessel_funcs(),
+                                        cutoff=cutoff,
+                                        envelope_exponent=envelope_exponent,
                                         activation=activation)
         
         # output block

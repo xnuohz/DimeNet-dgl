@@ -17,6 +17,3 @@ def _collate_fn(batch):
 
     labels = torch.tensor(labels, dtype=torch.float32)
     return g, labels
-
-def mae_loss(predictions, labels):
-    return torch.abs(predictions - labels).mean()

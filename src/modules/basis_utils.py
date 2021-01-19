@@ -18,7 +18,6 @@ def Jn(r, n):
         res = [0.3, 0.1, 0.1, 0.1]
     ===
     numerical spherical bessel functions of order n
-    https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.jv.html
     """
     return np.sqrt(np.pi/(2*r)) * sp.jv(n+0.5, r)  # the same shape as n
 
@@ -29,7 +28,6 @@ def Jn_zeros(n, k):
     res: [n, k]
 
     Compute the first k zeros of the spherical bessel functions up to order n (excluded)
-    first k roots?
     """
     zerosj = np.zeros((n, k), dtype="float32")
     zerosj[0] = np.arange(1, k + 1) * np.pi
