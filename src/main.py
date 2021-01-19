@@ -12,25 +12,27 @@ from qm9 import QM9
 from modules.dimenet import DimeNet
 from utils import _collate_fn
 
-def train(model, opt, loss_fn, train_loader):
+def train(device, model, opt, loss_fn, train_loader):
     model.train()
     epoch_loss = 0
     for g, labels in train_loader:
+        g = g.to(device)
+        labels = labels.to(device)
         logits = model(g)
         loss = loss_fn(logits, labels.view([-1, 1]))
         epoch_loss += loss.data.item() * len(labels)
         opt.zero_grad()
         loss.backward()
         opt.step()
-        break
 
     return epoch_loss / len(train_loader)
 
 @torch.no_grad()
-def evaluate(model, valid_loader):
+def evaluate(device, model, valid_loader):
     model.eval()
     predictions_all, labels_all = [], []
     for g, labels in valid_loader:
+        g = g.to(device)
         logits = model(g)
         labels_all.extend(labels)
         predictions_all.extend(logits.view(-1,).cpu().numpy())
@@ -41,7 +43,7 @@ def main():
     # load data
     dataset = QM9(label_keys=args.targets)
     # data split
-    train_data, valid_data, test_data = split_dataset(dataset, frac_list=[0.99, 0.00999, 0.00001], random_state=42)
+    train_data, valid_data, test_data = split_dataset(dataset, random_state=42)
     # data loader
     train_loader = DataLoader(train_data,
                               batch_size=args.batch_size,
@@ -57,14 +59,18 @@ def main():
                              batch_size=args.batch_size,
                              shuffle=False,
                              collate_fn=_collate_fn)
-    # print(len(test_data))
-    # return
+    
+    print('train size: ', len(train_data))
+    print('valid size: ', len(valid_data))
+    print('test size: ', len(test_data))
+
     # check cuda
     if args.gpu >= 0 and torch.cuda.is_available():
         device = 'cuda:{}'.format(args.gpu)
     else:
         device = 'cpu'
 
+    # model initialization
     model = DimeNet(emb_size=args.emb_size,
                     num_blocks=args.num_blocks,
                     num_bilinear=args.num_bilinear,
@@ -77,17 +83,19 @@ def main():
                     num_dense_output=args.num_dense_output,
                     num_targets=len(args.targets))
         
-    # model = model.to(device)
+    model = model.to(device)
+    # define loss function and optimization
     loss_fn = nn.L1Loss()
     opt = optim.Adam(model.parameters(), lr=args.lr)
 
+    # model training
     best_mae = 1e9
     best_model = copy.deepcopy(model)
     no_improvement = 0
 
     for i in range(args.epochs):
-        train_loss = train(model, opt, loss_fn, test_loader)
-        predictions, labels = evaluate(model, test_loader)
+        train_loss = train(device, model, opt, loss_fn, test_loader)
+        predictions, labels = evaluate(device, model, test_loader)
 
         cur_mae = mean_absolute_error(labels, predictions)
         print('Epoch {} | Train Loss {:.4f} | Val MAE {:.4f}'.format(i, train_loss, cur_mae))
@@ -95,16 +103,15 @@ def main():
         if cur_mae > best_mae:
             no_improvement += 1
             if no_improvement == args.early_stopping:
-                    print('Early stop.')
-                    break
+                print('Early stop.')
+                break
         else:
             no_improvement = 0
             best_mae = cur_mae
             best_model = copy.deepcopy(best_model)
-        
-        break
 
-    predictions, labels = evaluate(best_model, test_loader)
+    # model testing
+    predictions, labels = evaluate(device, best_model, test_loader)
     test_mae = mean_absolute_error(labels, predictions)
     print('Test MAE {:.4f}'.format(test_mae))
 
@@ -133,8 +140,7 @@ if __name__ == "__main__":
     # training params
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
     parser.add_argument('--batch-size', type=int, default=32, help='Batch size.')
-    # parser.add_argument('--epochs', type=int, default=3000000, help='Training epochs.')
-    parser.add_argument('--epochs', type=int, default=1, help='Training epochs.')
+    parser.add_argument('--epochs', type=int, default=3000000, help='Training epochs.')
     parser.add_argument('--early-stopping', type=int, default=20, help='Patient epochs to wait before early stopping.')
 
     args = parser.parse_args()

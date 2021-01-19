@@ -10,7 +10,7 @@ class BesselBasisLayer(nn.Module):
                  cutoff,
                  envelope_exponent=5):
         super(BesselBasisLayer, self).__init__()
-
+        
         self.cutoff = cutoff
         self.num_radial = num_radial
         self.envelope = Envelope(envelope_exponent)
