@@ -36,8 +36,9 @@ def main():
                     num_dense_output=args.num_dense_output,
                     num_targets=args.num_targets)
 
-    for g, data, labels in train_loader:
-        logits = model(g, data)
+    for g, labels in train_loader:
+        logits = model(g)
+        print(logits.size())
         break
 
 if __name__ == "__main__":

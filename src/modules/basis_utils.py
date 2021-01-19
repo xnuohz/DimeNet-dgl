@@ -174,17 +174,3 @@ def real_sph_harm(l, zero_m_only=True, spherical_coordinates=True):
                     2**0.5 * sph_harm_prefactor(i, -j) * S_m[j] * P_l_m[i][j])
 
     return Y_func_l_m
-
-def calculate_interatomic_distances(R, idx_i, idx_j):
-    Ri, Rj = R[idx_i], R[idx_j]
-    Dij = torch.sqrt(F.relu(torch.sum((Ri - Rj) ** 2, -1)))
-    return Dij
-
-def calculate_neighbor_angles(R, id3_i, id3_j, id3_k):
-    Ri, Rj, Rk = R[id3_i], R[id3_j], R[id3_k]
-    R1, R2 = Rj - Ri, Rk - Rj
-    x = torch.sum(R1 * R2, dim=-1)
-    y = torch.cross(R1, R2)
-    y = torch.norm(y, dim=-1)
-    angle = torch.atan2(y, x)
-    return angle

@@ -1,12 +1,11 @@
-import torch.nn as nn
-import torch
-import dgl
 import sympy as sym
+import torch
+import torch.nn as nn
+import dgl
 
 from modules.residual_layer import ResidualLayer
 from modules.basis_utils import bessel_basis, real_sph_harm
 from modules.envelope import Envelope
-from torch_scatter import scatter_add
 
 class InteractionBlock(nn.Module):
     def __init__(self,
@@ -29,16 +28,28 @@ class InteractionBlock(nn.Module):
         
         self.sph_funcs = sph_funcs
 
+        # Transformations of Bessel and spherical basis representations
         self.dense_rbf = nn.Linear(num_radial, emb_size, bias=False)
         self.dense_sbf = nn.Linear(num_radial * num_spherical, num_bilinear, bias=False)
+        # Dense transformations of input messages
         self.dense_m = nn.Linear(emb_size, emb_size)
-
+        # Bilinear layer
         bilin_initializer = torch.empty((self.emb_size, self.num_bilinear, self.emb_size)).normal_(mean=0, std=2 / emb_size)
         self.W_bilin = nn.Parameter(bilin_initializer)
+        # Residual layers before skip connection
+        self.layers_before_skip = nn.ModuleList([
+            ResidualLayer(emb_size, activation=activation) for _ in range(num_before_skip)
+        ])
+        self.final_before_skip = nn.Linear(emb_size, emb_size)
+        # Residual layers after skip connection
+        self.layers_after_skip = nn.ModuleList([
+            ResidualLayer(emb_size, activation=activation) for _ in range(num_after_skip)
+        ])
 
     def edge_transfer(self, edges):
-        # from rbf layer
+        # Transform via Bessel basis
         rbf = self.dense_rbf(edges.data['rbf'])
+        # Initial transformation
         m = self.dense_m(edges.data['m'])
         if self.activation is not None:
             m = self.activation(m)
@@ -47,18 +58,21 @@ class InteractionBlock(nn.Module):
         return {'w': rbf * m, 'rbf_env': torch.ones([20, 42])}
 
     def msg_func(self, edges):
+        # Calculate angles k -> j -> i
         R1, R2 = edges.src['o'], edges.dst['o']
         x = torch.sum(R1 * R2, dim=-1)
         y = torch.cross(R1, R2)
         y = torch.norm(y, dim=-1)
         angle = torch.atan2(y, x)
-        
+        # Transform via angles
         cbf = [f(angle) for f in self.sph_funcs]
         cbf = torch.stack(cbf, dim=1)  # [60, 7]
         cbf = cbf.repeat_interleave(self.num_radial, dim=1)  # [60, 42]
         sbf = edges.src['rbf_env'] * cbf  # [60, 42]
+        # Transform via spherical basis
         sbf = self.dense_sbf(sbf)
 
+        # # Apply bilinear layer to interactions and basis function activation
         # [60, 8] * [60, 128] * [128, 8, 128] -> [60, 128]
         x_kj = torch.einsum("wj,wl,ijl->wi", sbf, edges.src['m'], self.W_bilin)
         # sbf [60, 42]
@@ -84,9 +98,19 @@ class InteractionBlock(nn.Module):
         for k, v in l_g.edata.items():
             g.ndata[k] = v
 
-        print(g)
-        # print(type(g.ndata), type(g.edata))
-        # print(type(l_g.ndata), type(l_g.edata))
-        # print(l_g.ndata.keys())
-        # msg_func: f(e_angle, u_w_e, W_bilinear), reduce_func: sum
+        # Transformations before skip connection
+        g.edata['m_update'] += g.edata['m']
+        for layer in self.layers_before_skip:
+            g.edata['m_update'] = layer(g.edata['m_update'])
+        g.edata['m_update'] = self.final_before_skip(g.edata['m_update'])
+        if self.activation is not None:
+            g.edata['m_update'] = self.activation(g.edata['m_update'])
+
+        # Skip connection
+        g.edata['m'] += g.edata['m_update']
+
+        # Transformations after skip connection
+        for layer in self.layers_after_skip:
+            g.edata['m'] = layer(g.edata['m'])
+
         return g
