@@ -10,7 +10,7 @@ from dgl.data.utils import split_dataset
 from sklearn.metrics import mean_absolute_error
 from qm9 import QM9
 from modules.dimenet import DimeNet
-from utils import _collate_fn
+from utils import _collate_fn, ema
 
 def train(device, model, opt, loss_fn, train_loader):
     model.train()
@@ -86,7 +86,7 @@ def main():
     model = model.to(device)
     # define loss function and optimization
     loss_fn = nn.L1Loss()
-    opt = optim.Adam(model.parameters(), lr=args.lr)
+    opt = optim.Adam(model.parameters(), lr=args.lr, amsgrad=True)
 
     # model training
     best_mae = 1e9

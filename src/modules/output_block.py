@@ -17,6 +17,11 @@ class OutputBlock(nn.Module):
             nn.Linear(emb_size, emb_size) for _ in range(num_dense)
         ])
         self.dense_final = nn.Linear(emb_size, num_targets, bias=False)
+        self.reset_params()
+    
+    def reset_params(self):
+        nn.init.orthogonal_(self.dense_rbf.weight)
+        nn.init.zeros_(self.dense_final.weight)
     
     def node_udf(self, nodes):
         t = nodes.data['t']

@@ -32,7 +32,8 @@ class InteractionBlock(nn.Module):
         self.dense_rbf = nn.Linear(num_radial, emb_size, bias=False)
         self.dense_sbf = nn.Linear(num_radial * num_spherical, num_bilinear, bias=False)
         # Dense transformations of input messages
-        self.dense_m = nn.Linear(emb_size, emb_size)
+        self.dense_ji = nn.Linear(emb_size, emb_size)
+        self.dense_kj = nn.Linear(emb_size, emb_size)
         # Bilinear layer
         bilin_initializer = torch.empty((self.emb_size, self.num_bilinear, self.emb_size)).normal_(mean=0, std=2 / emb_size)
         self.W_bilin = nn.Parameter(bilin_initializer)
@@ -46,16 +47,26 @@ class InteractionBlock(nn.Module):
             ResidualLayer(emb_size, activation=activation) for _ in range(num_after_skip)
         ])
 
+        self.reset_params()
+    
+    def reset_params(self):
+        nn.init.orthogonal_(self.dense_rbf.weight)
+        nn.init.orthogonal_(self.dense_sbf.weight)
+        nn.init.orthogonal_(self.dense_ji.weight)
+        nn.init.orthogonal_(self.dense_kj.weight)
+
     def edge_transfer(self, edges):
         # Transform via Bessel basis
         rbf = self.dense_rbf(edges.data['rbf'])
         # Initial transformation
-        m = self.dense_m(edges.data['m'])
+        x_ji = self.dense_ji(edges.data['m'])
+        x_kj = self.dense_kj(edges.data['m'])
         if self.activation is not None:
-            m = self.activation(m)
+            x_ji = self.activation(x_ji)
+            x_kj = self.activation(x_kj)
 
         # w: W * e_RBF \bigodot \sigma(W * m + b)
-        return {'w': rbf * m}
+        return {'x_kj': x_kj * rbf, 'x_ji': x_ji}
 
     def msg_func(self, edges):
         # Calculate angles k -> j -> i
@@ -73,8 +84,8 @@ class InteractionBlock(nn.Module):
         sbf = self.dense_sbf(sbf)
 
         # # Apply bilinear layer to interactions and basis function activation
-        # [None, 8] * [None, 128] * [128, 8, 128] -> [None, 128]
-        x_kj = torch.einsum("wj,wl,ijl->wi", sbf, edges.src['m'], self.W_bilin)
+        # [None, 8] * [128, 8, 128] * [None, 128] -> [None, 128]
+        x_kj = torch.einsum("wj,wl,ijl->wi", sbf, edges.src['x_kj'], self.W_bilin)
         # sbf [None, 42]
         return {'x_kj': x_kj}
 
@@ -99,7 +110,7 @@ class InteractionBlock(nn.Module):
             g.ndata[k] = v
 
         # Transformations before skip connection
-        g.edata['m_update'] = g.edata['m'] + g.edata['m_update']
+        g.edata['m_update'] = g.edata['m_update'] + g.edata['x_ji']
         for layer in self.layers_before_skip:
             g.edata['m_update'] = layer(g.edata['m_update'])
         g.edata['m_update'] = self.final_before_skip(g.edata['m_update'])
@@ -107,7 +118,7 @@ class InteractionBlock(nn.Module):
             g.edata['m_update'] = self.activation(g.edata['m_update'])
 
         # Skip connection
-        g.edata['m'] = g.edata['m_update'] + g.edata['m']
+        g.edata['m'] = g.edata['m'] + g.edata['m_update']
 
         # Transformations after skip connection
         for layer in self.layers_after_skip:

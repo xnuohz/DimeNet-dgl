@@ -25,7 +25,7 @@ class SphericalBasisLayer(nn.Module):
         self.sph_funcs = []
         self.bessel_funcs = []
 
-        # convert to tensorflow functions
+        # convert to torch functions
         x = sym.symbols('x')
         theta = sym.symbols('theta')
         modules = {'sin': torch.sin, 'cos': torch.cos}
