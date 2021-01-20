@@ -14,6 +14,7 @@ pandas 1.1.4
 tqdm 4.53.0
 torch 1.7.0
 sympy 1.7.1
+scikit-learn 0.23.2
 ```
 
 ### The graph datasets used in this example
@@ -60,10 +61,14 @@ Training a DimeNet model on QM9 dataset.
 ```bash
 python src/main.py
 ```
+Train a model with target **homo** on GPU **0**.
+```bash
+python src/main.py --gpu 0 --targets homo
+```
 
 ### Performance
 
 | Target | mu | alpha | homo | lumo | gap | r2 | zpve | U0 | U | H | G | Cv |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | MAE(DimeNet in Table 1) | 0.0286 | 0.0469 | 27.8 | 19.7 | 34.8 | 0.331 | 1.29 | 8.02 | 7.89 | 8.11 | 8.98 | 0.0249 |
-| MAE(DGL) |  |  |  |  |  |  |  |  |  |  |  |  |
+| MAE(DGL) | 15.065 | 65.250 | 10.3 | 10.8 |  |  |  |  |  |  |  |  |
