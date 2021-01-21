@@ -20,7 +20,7 @@ class OutputBlock(nn.Module):
         self.reset_params()
     
     def reset_params(self):
-        nn.init.orthogonal_(self.dense_rbf.weight)
+        nn.init.xavier_normal_(self.dense_rbf.weight)
         nn.init.zeros_(self.dense_final.weight)
     
     def node_udf(self, nodes):

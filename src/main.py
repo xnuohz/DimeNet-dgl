@@ -86,16 +86,22 @@ def main():
     model = model.to(device)
     # define loss function and optimization
     loss_fn = nn.L1Loss()
-    opt = optim.Adam(model.parameters(), lr=args.lr, amsgrad=True)
+    opt = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, amsgrad=True)
 
     # model training
     best_mae = 1e9
-    best_model = copy.deepcopy(model)
     no_improvement = 0
+    # EMA for valid and test
+    ema_model = copy.deepcopy(model)
+    for p in ema_model.parameters():
+        p.requires_grad_(False)
+    
+    best_model = copy.deepcopy(ema_model)
 
     for i in range(args.epochs):
-        train_loss = train(device, model, opt, loss_fn, test_loader)
-        predictions, labels = evaluate(device, model, test_loader)
+        train_loss = train(device, model, opt, loss_fn, train_loader)
+        update(ema_model, model, args.ema_decay)
+        predictions, labels = evaluate(device, ema_model, valid_loader)
 
         cur_mae = mean_absolute_error(labels, predictions)
         print('Epoch {} | Train Loss {:.4f} | Val MAE {:.4f}'.format(i, train_loss, cur_mae))
@@ -108,11 +114,13 @@ def main():
         else:
             no_improvement = 0
             best_mae = cur_mae
-            best_model = copy.deepcopy(best_model)
+            best_model = copy.deepcopy(ema_model)
 
     # model testing
-    predictions, labels = evaluate(device, best_model, test_loader)
+    predictions, labels = evaluate(device, ema_model, test_loader)
     test_mae = mean_absolute_error(labels, predictions)
+    print('Predictions: {}'.format(predictions[:10]))
+    print('Labels: {}'.format(labels[:10]))
     print('Test MAE {:.4f}'.format(test_mae))
 
 if __name__ == "__main__":
@@ -139,6 +147,8 @@ if __name__ == "__main__":
     parser.set_defaults(targets=['mu'])
     # training params
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate.')
+    parser.add_argument('--weight-decay', type=float, default=0.0001, help='Weight decay.')
+    parser.add_argument('--ema-decay', type=float, default=0.999, help='EMA decay.')
     parser.add_argument('--batch-size', type=int, default=32, help='Batch size.')
     parser.add_argument('--epochs', type=int, default=3000000, help='Training epochs.')
     parser.add_argument('--early-stopping', type=int, default=20, help='Patient epochs to wait before early stopping.')

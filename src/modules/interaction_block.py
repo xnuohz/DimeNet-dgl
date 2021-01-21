@@ -50,10 +50,10 @@ class InteractionBlock(nn.Module):
         self.reset_params()
     
     def reset_params(self):
-        nn.init.orthogonal_(self.dense_rbf.weight)
-        nn.init.orthogonal_(self.dense_sbf.weight)
-        nn.init.orthogonal_(self.dense_ji.weight)
-        nn.init.orthogonal_(self.dense_kj.weight)
+        nn.init.xavier_normal_(self.dense_rbf.weight)
+        nn.init.xavier_normal_(self.dense_sbf.weight)
+        nn.init.xavier_normal_(self.dense_ji.weight)
+        nn.init.xavier_normal_(self.dense_kj.weight)
 
     def edge_transfer(self, edges):
         # Transform via Bessel basis
