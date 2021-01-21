@@ -15,22 +15,26 @@ from utils import _collate_fn, ema
 def train(device, model, opt, loss_fn, train_loader):
     model.train()
     epoch_loss = 0
+    num_samples = 0
+
     for g, labels in train_loader:
         g = g.to(device)
         labels = labels.to(device)
         logits = model(g)
         loss = loss_fn(logits, labels.view([-1, 1]))
         epoch_loss += loss.data.item() * len(labels)
+        num_samples += len(labels)
         opt.zero_grad()
         loss.backward()
         opt.step()
 
-    return epoch_loss / len(train_loader)
+    return epoch_loss / num_samples
 
 @torch.no_grad()
 def evaluate(device, model, valid_loader):
     model.eval()
     predictions_all, labels_all = [], []
+    
     for g, labels in valid_loader:
         g = g.to(device)
         logits = model(g)
@@ -47,7 +51,7 @@ def main():
     # data loader
     train_loader = DataLoader(train_data,
                               batch_size=args.batch_size,
-                              shuffle=False,
+                              shuffle=True,
                               collate_fn=_collate_fn)
 
     valid_loader = DataLoader(valid_data,
@@ -100,7 +104,7 @@ def main():
 
     for i in range(args.epochs):
         train_loss = train(device, model, opt, loss_fn, train_loader)
-        update(ema_model, model, args.ema_decay)
+        ema(ema_model, model, args.ema_decay)
         predictions, labels = evaluate(device, ema_model, valid_loader)
 
         cur_mae = mean_absolute_error(labels, predictions)
