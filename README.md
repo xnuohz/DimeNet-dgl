@@ -49,8 +49,10 @@ The DGL's built-in QM9 dataset. Dataset summary:
 ###### Training options
 ```
 --lr             float Learning rate.                                Default is 0.001
+--weight-decay   float Weight decay.                                 Default is 0.0001
+--ema-decay      float EMA decay.                                    Default is 0.999
 --batch-size     int   Batch size.                                   Default is 32
---epochs         int   Training epochs.                              Default is 3000000
+--epochs         int   Training epochs.                              Default is 800
 --early-stopping int   Patient epochs to wait before early stopping. Default is 20
 ```
 
@@ -71,4 +73,4 @@ python src/main.py --gpu 0 --targets homo
 | Target | mu | alpha | homo | lumo | gap | r2 | zpve | U0 | U | H | G | Cv |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | MAE(DimeNet in Table 1) | 0.0286 | 0.0469 | 27.8 | 19.7 | 34.8 | 0.331 | 1.29 | 8.02 | 7.89 | 8.11 | 8.98 | 0.0249 |
-| MAE(DGL) | 15.065 | 65.250 | 10.3 | 10.8 |  |  |  |  |  |  |  |  |
+| MAE(DGL) |  |  |  |  |  |  |  |  |  |  |  |  |

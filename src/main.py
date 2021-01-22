@@ -154,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument('--weight-decay', type=float, default=0.0001, help='Weight decay.')
     parser.add_argument('--ema-decay', type=float, default=0.999, help='EMA decay.')
     parser.add_argument('--batch-size', type=int, default=32, help='Batch size.')
-    parser.add_argument('--epochs', type=int, default=3000000, help='Training epochs.')
+    parser.add_argument('--epochs', type=int, default=800, help='Training epochs.')
     parser.add_argument('--early-stopping', type=int, default=20, help='Patient epochs to wait before early stopping.')
 
     args = parser.parse_args()
