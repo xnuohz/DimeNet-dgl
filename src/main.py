@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+from time import time
 from torch.utils.data import DataLoader
 from dgl.data.utils import split_dataset
 from sklearn.metrics import mean_absolute_error
@@ -95,6 +96,7 @@ def main():
     # model training
     best_mae = 1e9
     no_improvement = 0
+    training_times = []
     # EMA for valid and test
     ema_model = copy.deepcopy(model)
     for p in ema_model.parameters():
@@ -103,7 +105,9 @@ def main():
     best_model = copy.deepcopy(ema_model)
 
     for i in range(args.epochs):
+        start_t = time()
         train_loss = train(device, model, opt, loss_fn, train_loader)
+        training_times.append(time() - start_t)
         ema(ema_model, model, args.ema_decay)
         predictions, labels = evaluate(device, ema_model, valid_loader)
 
@@ -123,6 +127,7 @@ def main():
     # model testing
     predictions, labels = evaluate(device, ema_model, test_loader)
     test_mae = mean_absolute_error(labels, predictions)
+    print('Training times: ', training_times, mean(training_times))
     print('Predictions: {}'.format(predictions[:10]))
     print('Labels: {}'.format(labels[:10]))
     print('Test MAE {:.4f}'.format(test_mae))
