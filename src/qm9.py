@@ -4,7 +4,7 @@ import numpy as np
 import scipy.sparse as sp
 
 from dgl.data import DGLDataset
-from dgl.data.utils import download, _get_dgl_url
+from dgl.data.utils import download, _get_dgl_url, load_graphs, save_graphs
 from dgl.convert import graph as dgl_graph
 from dgl.transform import to_bidirected
 from dgl import backend as F
@@ -15,7 +15,7 @@ class QM9Dataset(DGLDataset):
     This dataset consists of 13,0831 molecules with 12 regression targets.
     Node means atom and edge means bond.
 
-    Reference: `"Directional Message Passing for Molecular Graphs" <https://arxiv.org/abs/2003.03123>`_
+    Reference: `"Quantum-Machine.org" <http://quantum-machine.org/datasets/>`_, `"Directional Message Passing for Molecular Graphs" <https://arxiv.org/abs/2003.03123>`_
     
     Statistics:
 
@@ -53,10 +53,10 @@ class QM9Dataset(DGLDataset):
     Parameters
     ----------
     label_keys: list
-        Names of the regression property.
+        Names of the regression property, which should be a subset of the keys in the table above.
     cutoff: float
         Cutoff distance for interatomic interactions, i.e. two atoms are connected in the corresponding graph if the distance between them is no larger than this.
-        Default: 5.0
+        Default: 5.0 Angstrom
     raw_dir : str
         Raw file directory to download/contains the input data directory.
         Default: ~/.dgl/
@@ -79,7 +79,7 @@ class QM9Dataset(DGLDataset):
     --------
     >>> data = QM9Dataset(label_keys=['mu', 'gap'], cutoff=5.0)
     >>> data.num_labels
-    12
+    2
     >>>
     >>> # iterate over the dataset
     >>> for g, label in data:
@@ -91,6 +91,7 @@ class QM9Dataset(DGLDataset):
 
     def __init__(self,
                  label_keys,
+                 edge_funcs=None,
                  cutoff=5.0,
                  raw_dir=None,
                  force_reload=False,
@@ -98,6 +99,7 @@ class QM9Dataset(DGLDataset):
     
         self.cutoff = cutoff
         self.label_keys = label_keys
+        self.edge_funcs = edge_funcs
         self._url = _get_dgl_url('dataset/qm9_eV.npz')
 
         super(QM9Dataset, self).__init__(name='qm9',
@@ -106,22 +108,69 @@ class QM9Dataset(DGLDataset):
                                          force_reload=force_reload,
                                          verbose=verbose)
 
+    def has_cache(self):
+        """ step 1, if True, goto step 5 """
+        graph_path = f'{self.save_path}/dgl_graph.bin'
+        return os.path.exists(graph_path)
+    
+    def download(self):
+        """ step 2 """
+        file_path = f'{self.raw_dir}/qm9_eV.npz'
+        if not os.path.exists(file_path):
+            download(self._url, path=file_path)
+
     def process(self):
+        """ step 3 """
         npz_path = f'{self.raw_dir}/qm9_eV.npz'
         data_dict = np.load(npz_path, allow_pickle=True)
-        # the number of atoms in each molecule. 
+        # data_dict['N'] contains the number of atoms in each molecule.
         # Atomic properties (Z and R) of all molecules are concatenated as single tensors,
         # so you need this value to select the correct atoms for each molecule.
         self.N = data_dict['N']
         self.R = data_dict['R']
         self.Z = data_dict['Z']
-        self.label = np.stack([data_dict[key] for key in self.label_keys], axis=1)
         self.N_cumsum = np.concatenate([[0], np.cumsum(self.N)])
+        # graph labels
+        label = np.stack([data_dict[key] for key in self.label_keys], axis=1)
+        self.label = F.tensor(label, dtype=F.data_type_dict['float32'])
+        # graph features
+        self.graphs = self._load_graph()
+    
+    def _load_graph(self):
+        num_graphs = self.label.shape[0]
+        graphs = []
+        
+        for idx in range(num_graphs):
+            print(f'{idx + 1}/{num_graphs}')
+            n_atoms = self.N[idx]
+            R = self.R[self.N_cumsum[idx]:self.N_cumsum[idx + 1]]
+            dist = np.linalg.norm(R[:, None, :] - R[None, :, :], axis=-1)
+            adj = sp.csr_matrix(dist <= self.cutoff) - sp.eye(n_atoms, dtype=np.bool)
+            adj = adj.tocoo()
+            u, v = F.tensor(adj.row), F.tensor(adj.col)
+            g = dgl_graph((u, v))
+            g = to_bidirected(g)
+            g.ndata['R'] = F.tensor(R, dtype=F.data_type_dict['float32'])
+            g.ndata['Z'] = F.tensor(self.Z[self.N_cumsum[idx]:self.N_cumsum[idx + 1]], 
+                                    dtype=F.data_type_dict['int64'])
+            
+            # add user defined features
+            if self.edge_funcs is not None:
+                for func in self.edge_funcs:
+                    g.apply_edges(func)
+            graphs.append(g)
+        return graphs
 
-    def download(self):
-        file_path = f'{self.raw_dir}/qm9_eV.npz'
-        if not os.path.exists(file_path):
-            download(self._url, path=file_path)
+    def save(self):
+        """ step 4 """
+        graph_path = f'{self.save_path}/dgl_graph.bin'
+        save_graphs(str(graph_path), self.graphs, {'labels': self.label})
+
+    def load(self):
+        """ step 5 """
+        graphs, label_dict = load_graphs(f'{self.save_path}/dgl_graph.bin')
+        self.graphs = graphs
+        self.label = label_dict['labels']
 
     @property
     def num_labels(self):
@@ -144,29 +193,15 @@ class QM9Dataset(DGLDataset):
         Returns
         -------
         dgl.DGLGraph
-
             The graph contains:
 
             - ``ndata['R']``: the coordinates of each atom
             - ``ndata['Z']``: the atomic number
 
         Tensor
-
             Property values of molecular graphs
         """
-        label = F.tensor(self.label[idx], dtype=F.data_type_dict['float32'])
-        n_atoms = self.N[idx]
-        R = self.R[self.N_cumsum[idx]:self.N_cumsum[idx + 1]]
-        dist = np.linalg.norm(R[:, None, :] - R[None, :, :], axis=-1)
-        adj = sp.csr_matrix(dist <= self.cutoff) - sp.eye(n_atoms, dtype=np.bool)
-        adj = adj.tocoo()
-        u, v = F.tensor(adj.row), F.tensor(adj.col)
-        g = dgl_graph((u, v))
-        g = to_bidirected(g)
-        g.ndata['R'] = F.tensor(R, dtype=F.data_type_dict['float32'])
-        g.ndata['Z'] = F.tensor(self.Z[self.N_cumsum[idx]:self.N_cumsum[idx + 1]], 
-                                dtype=F.data_type_dict['int64'])
-        return g, label
+        return self.graphs[idx], self.label[idx]
 
     def __len__(self):
         r"""Number of graphs in the dataset.
