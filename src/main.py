@@ -53,17 +53,20 @@ def main():
     train_loader = DataLoader(train_data,
                               batch_size=args.batch_size,
                               shuffle=True,
-                              collate_fn=_collate_fn)
+                              collate_fn=_collate_fn,
+                              num_workers=6)
 
     valid_loader = DataLoader(valid_data,
                               batch_size=args.batch_size,
                               shuffle=False,
-                              collate_fn=_collate_fn)
+                              collate_fn=_collate_fn,
+                              num_workers=6)
 
     test_loader = DataLoader(test_data,
                              batch_size=args.batch_size,
                              shuffle=False,
-                             collate_fn=_collate_fn)
+                             collate_fn=_collate_fn,
+                             num_workers=6)
     
     print('train size: ', len(train_data))
     print('valid size: ', len(valid_data))
@@ -127,7 +130,7 @@ def main():
     # model testing
     predictions, labels = evaluate(device, ema_model, test_loader)
     test_mae = mean_absolute_error(labels, predictions)
-    print('Training times: ', training_times, mean(training_times))
+    print('Training times: ', np.mean(training_times))
     print('Predictions: {}'.format(predictions[:10]))
     print('Labels: {}'.format(labels[:10]))
     print('Test MAE {:.4f}'.format(test_mae))

@@ -74,3 +74,9 @@ python src/main.py --gpu 0 --targets homo
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | MAE(DimeNet in Table 1) | 0.0286 | 0.0469 | 27.8 | 19.7 | 34.8 | 0.331 | 1.29 | 8.02 | 7.89 | 8.11 | 8.98 | 0.0249 |
 | MAE(DGL) |  |  |  |  |  |  |  |  |  |  |  |  |
+
+### Speed
+
+| Model | Original Implementation | DGL Implementation | Improvement |
+| :-: | :-: | :-: | :-: |
+| DimeNet | | 2940 | |
