@@ -79,4 +79,4 @@ python src/main.py --gpu 0 --targets homo
 
 | Model | Original Implementation | DGL Implementation | Improvement |
 | :-: | :-: | :-: | :-: |
-| DimeNet | | 2940 | |
+| DimeNet | 2839 | 2940 | |

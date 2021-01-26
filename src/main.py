@@ -4,6 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
+import dgl
 
 from time import time
 from torch.utils.data import DataLoader
@@ -11,14 +13,35 @@ from dgl.data.utils import split_dataset
 from sklearn.metrics import mean_absolute_error
 from qm9 import QM9
 from modules.dimenet import DimeNet
-from utils import _collate_fn, ema
+
+@torch.no_grad()
+def ema(ema_model, model, decay):
+    msd = model.state_dict()
+    for k, ema_v in ema_model.state_dict().items():
+        model_v = msd[k].detach()
+        ema_v.copy_(ema_v * decay + (1. - decay) * model_v)
+
+def edge_init(edges):
+    R_src, R_dst = edges.src['R'], edges.dst['R']
+    dist = torch.sqrt(F.relu(torch.sum((R_src - R_dst) ** 2, -1)))
+    # d: bond length, o: bond orientation
+    return {'d': dist, 'o': R_src - R_dst}
+
+def _collate_fn(batch):
+    graphs, labels = map(list, zip(*batch))
+    g = dgl.batch(graphs)
+    labels = torch.tensor(labels, dtype=torch.float32)
+    return g, labels
 
 def train(device, model, opt, loss_fn, train_loader):
     model.train()
     epoch_loss = 0
     num_samples = 0
 
+    step_times = []
+
     for g, labels in train_loader:
+        t = time()
         g = g.to(device)
         labels = labels.to(device)
         logits = model(g)
@@ -29,6 +52,11 @@ def train(device, model, opt, loss_fn, train_loader):
         loss.backward()
         opt.step()
 
+        step_times.append(time() - t)
+        if len(step_times) == 100:
+            break
+    
+    print('Mean step time: ', sum(step_times) / len(step_times))
     return epoch_loss / num_samples
 
 @torch.no_grad()
@@ -46,7 +74,9 @@ def evaluate(device, model, valid_loader):
 
 def main():
     # load data
-    dataset = QM9(label_keys=args.targets)
+    t = time()
+    dataset = QM9(label_keys=args.targets, edge_funcs=[edge_init])
+    print('Loading dataset... ', time() - t)
     # data split
     train_data, valid_data, test_data = split_dataset(dataset, random_state=42)
     # data loader
@@ -54,19 +84,19 @@ def main():
                               batch_size=args.batch_size,
                               shuffle=True,
                               collate_fn=_collate_fn,
-                              num_workers=6)
+                              num_workers=args.num_workers)
 
     valid_loader = DataLoader(valid_data,
                               batch_size=args.batch_size,
                               shuffle=False,
                               collate_fn=_collate_fn,
-                              num_workers=6)
+                              num_workers=args.num_workers)
 
     test_loader = DataLoader(test_data,
                              batch_size=args.batch_size,
                              shuffle=False,
                              collate_fn=_collate_fn,
-                             num_workers=6)
+                             num_workers=args.num_workers)
     
     print('train size: ', len(train_data))
     print('valid size: ', len(valid_data))
@@ -79,6 +109,7 @@ def main():
         device = 'cpu'
 
     # model initialization
+    t = time()
     model = DimeNet(emb_size=args.emb_size,
                     num_blocks=args.num_blocks,
                     num_bilinear=args.num_bilinear,
@@ -89,9 +120,8 @@ def main():
                     num_before_skip=args.num_before_skip,
                     num_after_skip=args.num_after_skip,
                     num_dense_output=args.num_dense_output,
-                    num_targets=len(args.targets))
-        
-    model = model.to(device)
+                    num_targets=len(args.targets)).to(device)
+    print('Model init... ', time() - t)
     # define loss function and optimization
     loss_fn = nn.L1Loss()
     opt = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay, amsgrad=True)
@@ -101,16 +131,19 @@ def main():
     no_improvement = 0
     training_times = []
     # EMA for valid and test
+    t = time()
     ema_model = copy.deepcopy(model)
     for p in ema_model.parameters():
         p.requires_grad_(False)
+    print('EMA init... ', time() - t)
     
     best_model = copy.deepcopy(ema_model)
 
     for i in range(args.epochs):
-        start_t = time()
+        t = time()
         train_loss = train(device, model, opt, loss_fn, train_loader)
-        training_times.append(time() - start_t)
+        training_times.append(time() - t)
+        break
         ema(ema_model, model, args.ema_decay)
         predictions, labels = evaluate(device, ema_model, valid_loader)
 
@@ -126,6 +159,9 @@ def main():
             no_improvement = 0
             best_mae = cur_mae
             best_model = copy.deepcopy(ema_model)
+    
+    print(training_times)
+    return
 
     # model testing
     predictions, labels = evaluate(device, ema_model, test_loader)
@@ -164,6 +200,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch-size', type=int, default=32, help='Batch size.')
     parser.add_argument('--epochs', type=int, default=800, help='Training epochs.')
     parser.add_argument('--early-stopping', type=int, default=20, help='Patient epochs to wait before early stopping.')
+    parser.add_argument('--num-workers', type=int, default=0, help='Patient epochs to wait before early stopping.')
 
     args = parser.parse_args()
     print(args)
