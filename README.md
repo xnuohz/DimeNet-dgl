@@ -48,12 +48,13 @@ The DGL's built-in QM9 dataset. Dataset summary:
 
 ###### Training options
 ```
---lr             float Learning rate.                                Default is 0.001
---weight-decay   float Weight decay.                                 Default is 0.0001
---ema-decay      float EMA decay.                                    Default is 0.999
---batch-size     int   Batch size.                                   Default is 32
---epochs         int   Training epochs.                              Default is 800
---early-stopping int   Patient epochs to wait before early stopping. Default is 20
+--lr             float Learning rate.                                  Default is 0.001
+--weight-decay   float Weight decay.                                   Default is 0.0001
+--ema-decay      float EMA decay.                                      Default is 0.999
+--batch-size     int   Batch size.                                     Default is 32
+--epochs         int   Training epochs.                                Default is 800
+--early-stopping int   Patient epochs to wait before early stopping.   Default is 20
+--num-workers    int   Number of subprocesses to use for data loading. Default is 0
 ```
 
 ###### Examples
@@ -66,6 +67,10 @@ python src/main.py
 Train a model with target **homo** on GPU **0**.
 ```bash
 python src/main.py --gpu 0 --targets homo
+```
+Performance analysis
+```bash
+kernprof -v -l src/main.py [options]
 ```
 
 ### Performance

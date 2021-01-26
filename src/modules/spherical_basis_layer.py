@@ -6,6 +6,7 @@ from modules.basis_utils import bessel_basis, real_sph_harm
 from modules.envelope import Envelope
 
 class SphericalBasisLayer(nn.Module):
+    @profile
     def __init__(self,
                  num_spherical,
                  num_radial,

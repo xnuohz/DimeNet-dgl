@@ -140,3 +140,4 @@ Icon
 /notebook
 /log-history
 __pycache__/
+*.lprof

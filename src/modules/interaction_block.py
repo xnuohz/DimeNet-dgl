@@ -55,6 +55,7 @@ class InteractionBlock(nn.Module):
         nn.init.xavier_normal_(self.dense_ji.weight)
         nn.init.xavier_normal_(self.dense_kj.weight)
 
+    @profile
     def edge_transfer(self, edges):
         # Transform via Bessel basis
         rbf = self.dense_rbf(edges.data['rbf'])
@@ -68,6 +69,7 @@ class InteractionBlock(nn.Module):
         # w: W * e_RBF \bigodot \sigma(W * m + b)
         return {'x_kj': x_kj * rbf, 'x_ji': x_ji}
 
+    @profile
     def msg_func(self, edges):
         # Calculate angles k -> j -> i
         R1, R2 = edges.src['o'], edges.dst['o']
@@ -89,10 +91,12 @@ class InteractionBlock(nn.Module):
         # sbf [None, 42]
         return {'x_kj': x_kj}
 
+    @profile
     def reduce_func(self, nodes):
         # [None, n_neighbors, 128] -> [None, 128]
         return {'m_update': nodes.mailbox['x_kj'].sum(1)}
 
+    @profile
     def forward(self, g):
         g.apply_edges(self.edge_transfer)
         

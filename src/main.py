@@ -38,8 +38,6 @@ def train(device, model, opt, loss_fn, train_loader):
     epoch_loss = 0
     num_samples = 0
 
-    step_times = []
-
     for g, labels in train_loader:
         t = time()
         g = g.to(device)
@@ -52,11 +50,6 @@ def train(device, model, opt, loss_fn, train_loader):
         loss.backward()
         opt.step()
 
-        step_times.append(time() - t)
-        if len(step_times) == 100:
-            break
-    
-    print('Mean step time: ', sum(step_times) / len(step_times))
     return epoch_loss / num_samples
 
 @torch.no_grad()
@@ -72,6 +65,7 @@ def evaluate(device, model, valid_loader):
     
     return np.array(predictions_all), np.array(labels_all)
 
+@profile
 def main():
     # load data
     t = time()
@@ -143,7 +137,6 @@ def main():
         t = time()
         train_loss = train(device, model, opt, loss_fn, train_loader)
         training_times.append(time() - t)
-        break
         ema(ema_model, model, args.ema_decay)
         predictions, labels = evaluate(device, ema_model, valid_loader)
 
@@ -159,16 +152,11 @@ def main():
             no_improvement = 0
             best_mae = cur_mae
             best_model = copy.deepcopy(ema_model)
-    
-    print(training_times)
-    return
 
     # model testing
     predictions, labels = evaluate(device, ema_model, test_loader)
     test_mae = mean_absolute_error(labels, predictions)
     print('Training times: ', np.mean(training_times))
-    print('Predictions: {}'.format(predictions[:10]))
-    print('Labels: {}'.format(labels[:10]))
     print('Test MAE {:.4f}'.format(test_mae))
 
 if __name__ == "__main__":
@@ -200,7 +188,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch-size', type=int, default=32, help='Batch size.')
     parser.add_argument('--epochs', type=int, default=800, help='Training epochs.')
     parser.add_argument('--early-stopping', type=int, default=20, help='Patient epochs to wait before early stopping.')
-    parser.add_argument('--num-workers', type=int, default=0, help='Patient epochs to wait before early stopping.')
+    parser.add_argument('--num-workers', type=int, default=0, help='Number of subprocesses to use for data loading.')
 
     args = parser.parse_args()
     print(args)
