@@ -18,16 +18,11 @@ class InteractionBlock(nn.Module):
                  num_bilinear,
                  num_before_skip,
                  num_after_skip,
-                 sph_funcs,
                  activation=None):
         super(InteractionBlock, self).__init__()
 
         self.emb_size = emb_size
-        self.num_radial = num_radial
-        self.num_bilinear = num_bilinear
         self.activation = activation
-        
-        self.sph_funcs = sph_funcs
 
         # Transformations of Bessel and spherical basis representations
         self.dense_rbf = nn.Linear(num_radial, emb_size, bias=False)
@@ -36,7 +31,7 @@ class InteractionBlock(nn.Module):
         self.dense_ji = nn.Linear(emb_size, emb_size)
         self.dense_kj = nn.Linear(emb_size, emb_size)
         # Bilinear layer
-        self.bilinear = nn.Bilinear(self.num_bilinear, self.emb_size, self.emb_size, bias=False)
+        self.bilinear = nn.Bilinear(num_bilinear, self.emb_size, self.emb_size, bias=False)
         # Residual layers before skip connection
         self.layers_before_skip = nn.ModuleList([
             ResidualLayer(emb_size, activation=activation) for _ in range(num_before_skip)
@@ -73,34 +68,18 @@ class InteractionBlock(nn.Module):
 
     @profile
     def msg_func(self, edges):
-        # Calculate angles k -> j -> i
-        R1, R2 = edges.src['o'], edges.dst['o']
-        x = torch.sum(R1 * R2, dim=-1)
-        y = torch.cross(R1, R2)
-        y = torch.norm(y, dim=-1)
-        angle = torch.atan2(y, x)
-        # Transform via angles
-        cbf = [f(angle) for f in self.sph_funcs]
-        cbf = torch.stack(cbf, dim=1)  # [None, 7]
-        cbf = cbf.repeat_interleave(self.num_radial, dim=1)  # [None, 42]
-        sbf = edges.src['rbf_env'] * cbf  # [None, 42]
-        # Transform via spherical basis
-        sbf = self.dense_sbf(sbf)
-
+        sbf = self.dense_sbf(edges.data['sbf'])
         # Apply bilinear layer to interactions and basis function activation
         # [None, 8] * [128, 8, 128] * [None, 128] -> [None, 128]
         x_kj = self.bilinear(sbf, edges.src['x_kj'])
-        # sbf [None, 42]
         return {'x_kj': x_kj}
 
     @profile
     def forward(self, g, l_g):
         g.apply_edges(self.edge_transfer)
         
-        # node means edge in original graph
-        # edge means node in original graph
-        # node: d, rbf, o
-        # edge: R, Z, h
+        # node means edge and edge means node in original graph
+        # node: d, rbf, o, rbf_env, x_kj, x_ji
         for k, v in g.edata.items():
             l_g.ndata[k] = v
 

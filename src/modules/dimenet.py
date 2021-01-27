@@ -57,6 +57,7 @@ class DimeNet(nn.Module):
         super(DimeNet, self).__init__()
 
         self.num_blocks = num_blocks
+        self.num_radial = num_radial
 
         # cosine basis function expansion layer
         self.rbf_layer = BesselBasisLayer(num_radial=num_radial,
@@ -95,9 +96,23 @@ class DimeNet(nn.Module):
                              num_bilinear=num_bilinear,
                              num_before_skip=num_before_skip,
                              num_after_skip=num_after_skip,
-                             sph_funcs=self.sbf_layer.get_sph_funcs(),
                              activation=activation) for _ in range(num_blocks)
         })
+    
+    def edge_init(self, edges):
+        # Calculate angles k -> j -> i
+        R1, R2 = edges.src['o'], edges.dst['o']
+        x = torch.sum(R1 * R2, dim=-1)
+        y = torch.cross(R1, R2)
+        y = torch.norm(y, dim=-1)
+        angle = torch.atan2(y, x)
+        # Transform via angles
+        # cbf = [f(angle) for f in self.sph_funcs]
+        cbf = [f(angle) for f in self.sbf_layer.get_sph_funcs()]
+        cbf = torch.stack(cbf, dim=1)  # [None, 7]
+        cbf = cbf.repeat_interleave(self.num_radial, dim=1)  # [None, 42]
+        sbf = edges.src['rbf_env'] * cbf  # [None, 42]
+        return {'sbf': sbf}
     
     @profile
     def forward(self, g, l_g):
@@ -107,6 +122,11 @@ class DimeNet(nn.Module):
         g = self.emb_block(g)
         # Output block
         P = self.output_blocks[0](g)  # [batch_size, num_targets]
+        # Prepare sbf feature before the following blocks
+        for k, v in g.edata.items():
+            l_g.ndata[k] = v
+
+        l_g.apply_edges(self.edge_init)
         # Interaction blocks
         for i in range(self.num_blocks):
             g = self.interaction_blocks[i](g, l_g)
