@@ -66,6 +66,7 @@ def evaluate(device, model, valid_loader):
     
     return np.array(predictions_all), np.array(labels_all)
 
+@profile
 def main():
     # load data
     t = time()

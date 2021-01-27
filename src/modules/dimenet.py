@@ -99,6 +99,7 @@ class DimeNet(nn.Module):
                              activation=activation) for _ in range(num_blocks)
         })
     
+    @profile
     def forward(self, g, l_g):
         # add rbf features for each edge in one batch graph, [num_radial,]
         g = self.rbf_layer(g)

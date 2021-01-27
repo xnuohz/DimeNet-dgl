@@ -11,6 +11,7 @@ class ResidualLayer(nn.Module):
         self.dense_1 = nn.Linear(units, units, bias=use_bias)
         self.dense_2 = nn.Linear(units, units, bias=use_bias)
     
+    @profile
     def forward(self, inputs):
         x = self.dense_1(inputs)
         if self.activation is not None:

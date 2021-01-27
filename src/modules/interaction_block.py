@@ -57,6 +57,7 @@ class InteractionBlock(nn.Module):
         bound = 2 / self.emb_size
         nn.init.uniform_(self.bilinear.weight, -bound, bound)
 
+    @profile
     def edge_transfer(self, edges):
         # Transform via Bessel basis
         rbf = self.dense_rbf(edges.data['rbf'])
@@ -70,6 +71,7 @@ class InteractionBlock(nn.Module):
         # w: W * e_RBF \bigodot \sigma(W * m + b)
         return {'x_kj': x_kj * rbf, 'x_ji': x_ji}
 
+    @profile
     def msg_func(self, edges):
         # Calculate angles k -> j -> i
         R1, R2 = edges.src['o'], edges.dst['o']
@@ -91,6 +93,7 @@ class InteractionBlock(nn.Module):
         # sbf [None, 42]
         return {'x_kj': x_kj}
 
+    @profile
     def forward(self, g, l_g):
         g.apply_edges(self.edge_transfer)
         
