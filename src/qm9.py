@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import scipy.sparse as sp
+import dgl
 
 from dgl.data import DGLDataset
 from dgl.data.utils import download, _get_dgl_url, load_graphs, save_graphs
@@ -111,7 +112,8 @@ class QM9Dataset(DGLDataset):
     def has_cache(self):
         """ step 1, if True, goto step 5 """
         graph_path = f'{self.save_path}/dgl_graph.bin'
-        return os.path.exists(graph_path)
+        line_graph_path = f'{self.save_path}/dgl_line_graph.bin'
+        return os.path.exists(graph_path) and os.path.exists(line_graph_path)
     
     def download(self):
         """ step 2 """
@@ -134,11 +136,12 @@ class QM9Dataset(DGLDataset):
         label = np.stack([data_dict[key] for key in self.label_keys], axis=1)
         self.label = F.tensor(label, dtype=F.data_type_dict['float32'])
         # graph features
-        self.graphs = self._load_graph()
+        self.graphs, self.line_graphs = self._load_graph()
     
     def _load_graph(self):
         num_graphs = self.label.shape[0]
         graphs = []
+        line_graphs = []
         
         for idx in range(num_graphs):
             print(f'{idx + 1}/{num_graphs}')
@@ -158,18 +161,26 @@ class QM9Dataset(DGLDataset):
             if self.edge_funcs is not None:
                 for func in self.edge_funcs:
                     g.apply_edges(func)
+
             graphs.append(g)
-        return graphs
+            l_g = dgl.line_graph(g, backtracking=False)
+            line_graphs.append(l_g)
+    
+        return graphs, line_graphs
 
     def save(self):
         """ step 4 """
         graph_path = f'{self.save_path}/dgl_graph.bin'
+        line_graph_path = f'{self.save_path}/dgl_line_graph.bin'
         save_graphs(str(graph_path), self.graphs, {'labels': self.label})
+        save_graphs(str(line_graph_path), self.line_graphs)
 
     def load(self):
         """ step 5 """
-        graphs, label_dict = load_graphs(f'{self.save_path}/dgl_graph.bin')
-        self.graphs = graphs
+        graph_path = f'{self.save_path}/dgl_graph.bin'
+        line_graph_path = f'{self.save_path}/dgl_line_graph.bin'
+        self.graphs, label_dict = load_graphs(graph_path)
+        self.line_graphs, _ = load_graphs(line_graph_path)
         self.label = label_dict['labels']
 
     @property
@@ -201,7 +212,7 @@ class QM9Dataset(DGLDataset):
         Tensor
             Property values of molecular graphs
         """
-        return self.graphs[idx], self.label[idx]
+        return self.graphs[idx], self.line_graphs[idx], self.label[idx]
 
     def __len__(self):
         r"""Number of graphs in the dataset.
