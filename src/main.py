@@ -28,21 +28,21 @@ def edge_init(edges):
     return {'d': dist, 'o': R_src - R_dst}
 
 def _collate_fn(batch):
-    graphs, labels = map(list, zip(*batch))
-    g = dgl.batch(graphs)
+    graphs, line_graphs, labels = map(list, zip(*batch))
+    g, l_g = dgl.batch(graphs), dgl.batch(line_graphs)
     labels = torch.tensor(labels, dtype=torch.float32)
-    return g, labels
+    return g, l_g, labels
 
 def train(device, model, opt, loss_fn, train_loader):
     model.train()
     epoch_loss = 0
     num_samples = 0
 
-    for g, labels in train_loader:
-        t = time()
+    for g, l_g, labels in train_loader:
         g = g.to(device)
+        l_g = l_g.to(device)
         labels = labels.to(device)
-        logits = model(g)
+        logits = model(g, l_g)
         loss = loss_fn(logits, labels.view([-1, 1]))
         epoch_loss += loss.data.item() * len(labels)
         num_samples += len(labels)
@@ -57,15 +57,15 @@ def evaluate(device, model, valid_loader):
     model.eval()
     predictions_all, labels_all = [], []
     
-    for g, labels in valid_loader:
+    for g, l_g, labels in valid_loader:
         g = g.to(device)
-        logits = model(g)
+        l_g = l_g.to(device)
+        logits = model(g, l_g)
         labels_all.extend(labels)
         predictions_all.extend(logits.view(-1,).cpu().numpy())
     
     return np.array(predictions_all), np.array(labels_all)
 
-@profile
 def main():
     # load data
     t = time()
