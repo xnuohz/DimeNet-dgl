@@ -22,7 +22,6 @@ class EmbeddingBlock(nn.Module):
         self.dense_rbf = nn.Linear(num_radial, emb_size)
         self.dense = nn.Linear(emb_size * 3, emb_size)
 
-    @profile
     def edge_init(self, edges):
         """ msg emb init: """
         # m init
@@ -45,7 +44,6 @@ class EmbeddingBlock(nn.Module):
 
         return {'m': m, 'rbf_env': rbf_env}
 
-    @profile
     def forward(self, g):
         g.apply_nodes(lambda nodes: {'h': self.embedding(nodes.data['Z'])})
         g.apply_edges(self.edge_init)

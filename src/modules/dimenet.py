@@ -99,8 +99,7 @@ class DimeNet(nn.Module):
                              activation=activation) for _ in range(num_blocks)
         })
     
-    @profile
-    def forward(self, g):
+    def forward(self, g, l_g):
         # add rbf features for each edge in one batch graph, [num_radial,]
         g = self.rbf_layer(g)
         # Embedding block
@@ -109,7 +108,7 @@ class DimeNet(nn.Module):
         P = self.output_blocks[0](g)  # [batch_size, num_targets]
         # Interaction blocks
         for i in range(self.num_blocks):
-            g = self.interaction_blocks[i](g)
+            g = self.interaction_blocks[i](g, l_g)
             P += self.output_blocks[i + 1](g)
         
         return P

@@ -16,7 +16,6 @@ class BesselBasisLayer(nn.Module):
         self.envelope = Envelope(envelope_exponent)
         self.frequencies = nn.Parameter(np.pi * torch.arange(1, num_radial + 1))
 
-    @profile
     def add_rbf_in_edge(self, edges):
         d_scaled = edges.data['d'] / self.cutoff
         # Necessary for proper broadcasting behaviour
@@ -24,7 +23,6 @@ class BesselBasisLayer(nn.Module):
         d_cutoff = self.envelope(d_scaled)
         return {'rbf': d_cutoff * torch.sin(self.frequencies * d_scaled)}
 
-    @profile
     def forward(self, g):
         g.apply_edges(self.add_rbf_in_edge)
         return g
