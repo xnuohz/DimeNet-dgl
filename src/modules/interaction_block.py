@@ -21,9 +21,7 @@ class InteractionBlock(nn.Module):
                  activation=None):
         super(InteractionBlock, self).__init__()
 
-        self.emb_size = emb_size
         self.activation = activation
-
         # Transformations of Bessel and spherical basis representations
         self.dense_rbf = nn.Linear(num_radial, emb_size, bias=False)
         self.dense_sbf = nn.Linear(num_radial * num_spherical, num_bilinear, bias=False)
@@ -31,7 +29,8 @@ class InteractionBlock(nn.Module):
         self.dense_ji = nn.Linear(emb_size, emb_size)
         self.dense_kj = nn.Linear(emb_size, emb_size)
         # Bilinear layer
-        self.bilinear = nn.Bilinear(num_bilinear, self.emb_size, self.emb_size, bias=False)
+        bilin_initializer = torch.empty((emb_size, num_bilinear, emb_size)).normal_(mean=0, std=2 / emb_size)
+        self.W_bilin = nn.Parameter(bilin_initializer)
         # Residual layers before skip connection
         self.layers_before_skip = nn.ModuleList([
             ResidualLayer(emb_size, activation=activation) for _ in range(num_before_skip)
@@ -49,8 +48,6 @@ class InteractionBlock(nn.Module):
         nn.init.xavier_normal_(self.dense_sbf.weight)
         nn.init.xavier_normal_(self.dense_ji.weight)
         nn.init.xavier_normal_(self.dense_kj.weight)
-        bound = 2 / self.emb_size
-        nn.init.uniform_(self.bilinear.weight, -bound, bound)
 
     @profile
     def edge_transfer(self, edges):
@@ -71,7 +68,8 @@ class InteractionBlock(nn.Module):
         sbf = self.dense_sbf(edges.data['sbf'])
         # Apply bilinear layer to interactions and basis function activation
         # [None, 8] * [128, 8, 128] * [None, 128] -> [None, 128]
-        x_kj = self.bilinear(sbf, edges.src['x_kj'])
+        x_kj = torch.einsum("wj,wl,ijl->wi", sbf, edges.src['x_kj'], self.W_bilin)
+        # x_kj = self.bilinear(sbf, edges.src['x_kj'])
         return {'x_kj': x_kj}
 
     @profile
