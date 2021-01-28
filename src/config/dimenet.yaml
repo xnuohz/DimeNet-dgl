@@ -23,3 +23,4 @@ train:
   early_stopping: 20
   num_workers: 6
   gpu: 0
+  interval: 50

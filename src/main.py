@@ -10,7 +10,6 @@ import dgl
 from logzero import logger
 from pathlib import Path
 from ruamel.yaml import YAML
-from time import time
 from torch.utils.data import DataLoader
 from dgl.data.utils import split_dataset
 from sklearn.metrics import mean_absolute_error
@@ -151,7 +150,7 @@ def main(model_cnf):
     # model training
     best_mae = 1e9
     no_improvement = 0
-    training_times = []
+    
     # EMA for valid and test
     logger.info('EMA Init')
     ema_model = copy.deepcopy(model)
@@ -162,29 +161,27 @@ def main(model_cnf):
 
     logger.info('Training')
     for i in range(train_params['epochs']):
-        t = time()
         train_loss = train(device, model, opt, loss_fn, train_loader)
-        training_times.append(time() - t)
         ema(ema_model, model, train_params['ema_decay'])
-        predictions, labels = evaluate(device, ema_model, valid_loader)
+        if i % train_params['interval'] == 0:
+            predictions, labels = evaluate(device, ema_model, valid_loader)
 
-        cur_mae = mean_absolute_error(labels, predictions)
-        logger.info(f'Epoch {i} | Train Loss {train_loss:.4f} | Val MAE {cur_mae:.4f}')
+            valid_mae = mean_absolute_error(labels, predictions)
+            logger.info(f'Epoch {i} | Train Loss {train_loss:.4f} | Val MAE {valid_mae:.4f}')
 
-        if cur_mae > best_mae:
-            no_improvement += 1
-            if no_improvement == train_params['early_stopping']:
-                logger.info('Early stop.')
-                break
-        else:
-            no_improvement = 0
-            best_mae = cur_mae
-            best_model = copy.deepcopy(ema_model)
+            if valid_mae > best_mae:
+                no_improvement += 1
+                if no_improvement == train_params['early_stopping']:
+                    logger.info('Early stop.')
+                    break
+            else:
+                no_improvement = 0
+                best_mae = valid_mae
+                best_model = copy.deepcopy(ema_model)
 
     logger.info('Testing')
     predictions, labels = evaluate(device, ema_model, test_loader)
     test_mae = mean_absolute_error(labels, predictions)
-    logger.info('Training times: ', np.mean(training_times))
     logger.info('Test MAE {:.4f}'.format(test_mae))
 
 if __name__ == "__main__":

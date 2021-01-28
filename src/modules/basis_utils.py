@@ -125,7 +125,6 @@ def associated_legendre_polynomials(l, zero_m_only=True):
 
     return P_l_m
 
-@profile
 def real_sph_harm(l, zero_m_only=True, spherical_coordinates=True):
     """
     return: a sympy function list of length l, for i-th index of the list, it is also a list of length (2 * i + 1)
