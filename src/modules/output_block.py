@@ -23,7 +23,6 @@ class OutputBlock(nn.Module):
         nn.init.xavier_normal_(self.dense_rbf.weight)
         nn.init.zeros_(self.dense_final.weight)
     
-    @profile
     def node_udf(self, nodes):
         t = nodes.data['t']
         for layer in self.dense_layers:
@@ -34,7 +33,6 @@ class OutputBlock(nn.Module):
         t = self.dense_final(t)
         return {'p': t}
 
-    @profile
     def forward(self, g):
         with g.local_scope():
             g.edata['tmp'] = g.edata['m'] * self.dense_rbf(g.edata['rbf'])

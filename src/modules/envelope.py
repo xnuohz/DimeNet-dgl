@@ -14,7 +14,6 @@ class Envelope(nn.Module):
         self.b = self.p * (self.p + 2)
         self.c = -self.p * (self.p + 1) / 2
     
-    @profile
     def forward(self, inputs):
         # Envelope function divided by r
         # u(d) / d

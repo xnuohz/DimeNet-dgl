@@ -11,7 +11,12 @@ class ResidualLayer(nn.Module):
         self.dense_1 = nn.Linear(units, units, bias=use_bias)
         self.dense_2 = nn.Linear(units, units, bias=use_bias)
     
-    @profile
+        self.reset_params()
+    
+    def reset_params(self):
+        nn.init.xavier_normal_(self.dense_1.weight)
+        nn.init.xavier_normal_(self.dense_2.weight)
+
     def forward(self, inputs):
         x = self.dense_1(inputs)
         if self.activation is not None:

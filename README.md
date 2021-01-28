@@ -15,6 +15,9 @@ tqdm 4.53.0
 torch 1.7.0
 sympy 1.7.1
 scikit-learn 0.23.2
+click 7.1.2
+logzero 1.6.3
+ruamel.yaml 0.16.12
 ```
 
 ### The graph datasets used in this example
