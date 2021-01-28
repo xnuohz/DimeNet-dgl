@@ -8,29 +8,32 @@ from modules.residual_layer import ResidualLayer
 from modules.basis_utils import bessel_basis, real_sph_harm
 from modules.envelope import Envelope
 
-class InteractionBlock(nn.Module):
+class InteractionPPBlock(nn.Module):
     def __init__(self,
                  emb_size,
+                 int_emb_size,
+                 basis_emb_size,
                  num_radial,
                  num_spherical,
                  cutoff,
                  envelope_exponent,
-                 num_bilinear,
                  num_before_skip,
                  num_after_skip,
                  activation=None):
-        super(InteractionBlock, self).__init__()
+        super(InteractionPPBlock, self).__init__()
 
         self.activation = activation
         # Transformations of Bessel and spherical basis representations
-        self.dense_rbf = nn.Linear(num_radial, emb_size, bias=False)
-        self.dense_sbf = nn.Linear(num_radial * num_spherical, num_bilinear, bias=False)
+        self.dense_rbf1 = nn.Linear(num_radial, basis_emb_size, bias=False)
+        self.dense_rbf2 = nn.Linear(basis_emb_size, emb_size, bias=False)
+        self.dense_sbf1 = nn.Linear(num_radial * num_spherical, basis_emb_size, bias=False)
+        self.dense_sbf2 = nn.Linear(basis_emb_size, int_emb_size, bias=False)
         # Dense transformations of input messages
         self.dense_ji = nn.Linear(emb_size, emb_size)
         self.dense_kj = nn.Linear(emb_size, emb_size)
-        # Bilinear layer
-        bilin_initializer = torch.empty((emb_size, num_bilinear, emb_size)).normal_(mean=0, std=2 / emb_size)
-        self.W_bilin = nn.Parameter(bilin_initializer)
+        # Embedding projections for interaction triplets
+        self.down_projection = nn.Linear(emb_size, int_emb_size, bias=False)
+        self.up_projection = nn.Linear(int_emb_size, emb_size, bias=False)
         # Residual layers before skip connection
         self.layers_before_skip = nn.ModuleList([
             ResidualLayer(emb_size, activation=activation) for _ in range(num_before_skip)
@@ -44,15 +47,20 @@ class InteractionBlock(nn.Module):
         self.reset_params()
     
     def reset_params(self):
-        nn.init.xavier_normal_(self.dense_rbf.weight)
-        nn.init.xavier_normal_(self.dense_sbf.weight)
+        nn.init.xavier_normal_(self.dense_rbf1.weight)
+        nn.init.xavier_normal_(self.dense_rbf2.weight)
+        nn.init.xavier_normal_(self.dense_sbf1.weight)
+        nn.init.xavier_normal_(self.dense_sbf2.weight)
         nn.init.xavier_normal_(self.dense_ji.weight)
         nn.init.xavier_normal_(self.dense_kj.weight)
+        nn.init.xavier_normal_(self.down_projection.weight)
+        nn.init.xavier_normal_(self.up_projection.weight)
 
     @profile
     def edge_transfer(self, edges):
         # Transform via Bessel basis
-        rbf = self.dense_rbf(edges.data['rbf'])
+        rbf = self.dense_rbf1(edges.data['rbf'])
+        rbf = self.dense_rbf2(rbf)
         # Initial transformation
         x_ji = self.dense_ji(edges.data['m'])
         x_kj = self.dense_kj(edges.data['m'])
@@ -60,16 +68,16 @@ class InteractionBlock(nn.Module):
             x_ji = self.activation(x_ji)
             x_kj = self.activation(x_kj)
 
-        # w: W * e_RBF \bigodot \sigma(W * m + b)
-        return {'x_kj': x_kj * rbf, 'x_ji': x_ji}
+        x_kj = self.down_projection(x_kj * rbf)
+        if self.activation is not None:
+            x_kj = self.activation(x_kj)
+        return {'x_kj': x_kj, 'x_ji': x_ji}
 
     @profile
     def msg_func(self, edges):
-        sbf = self.dense_sbf(edges.data['sbf'])
-        # Apply bilinear layer to interactions and basis function activation
-        # [None, 8] * [128, 8, 128] * [None, 128] -> [None, 128]
-        x_kj = torch.einsum("wj,wl,ijl->wi", sbf, edges.src['x_kj'], self.W_bilin)
-        # x_kj = self.bilinear(sbf, edges.src['x_kj'])
+        sbf = self.dense_sbf1(edges.data['sbf'])
+        sbf = self.dense_sbf2(sbf)
+        x_kj = edges.src['x_kj'] * sbf
         return {'x_kj': x_kj}
 
     @profile
@@ -86,6 +94,9 @@ class InteractionBlock(nn.Module):
         for k, v in l_g.ndata.items():
             g.edata[k] = v
 
+        g.edata['m_update'] = self.up_projection(g.edata['m_update'])
+        if self.activation is not None:
+            g.edata['m_update'] = self.activation(g.edata['m_update'])
         # Transformations before skip connection
         g.edata['m_update'] = g.edata['m_update'] + g.edata['x_ji']
         for layer in self.layers_before_skip:

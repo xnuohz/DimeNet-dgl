@@ -7,21 +7,25 @@ from modules.activations import swish
 from modules.bessel_basis_layer import BesselBasisLayer
 from modules.spherical_basis_layer import SphericalBasisLayer
 from modules.embedding_block import EmbeddingBlock
-from modules.output_block import OutputBlock
-from modules.interaction_block import InteractionBlock
+from modules.output_pp_block import OutputPPBlock
+from modules.interaction_pp_block import InteractionPPBlock
 
-class DimeNet(nn.Module):
+class DimeNetPP(nn.Module):
     """
-    DimeNet model.
+    DimeNet++ model.
 
     Parameters
     ----------
     emb_size
-        Embedding size used throughout the model
+        Embedding size used for the messages
+    out_emb_size
+        Embedding size used for atoms in the output block
+    int_emb_size
+        Embedding size used for interaction triplets
+    basis_emb_size
+        Embedding size used inside the basis transformation
     num_blocks
         Number of building blocks to be stacked
-    num_bilinear
-        Third dimension of the bilinear layer tensor
     num_spherical
         Number of spherical harmonics
     num_radial
@@ -40,11 +44,15 @@ class DimeNet(nn.Module):
         Number of targets to predict
     activation
         Activation function
+    extensive
+        Whether the output should be extensive (proportional to the number of atoms)
     """
     def __init__(self,
                  emb_size,
+                 out_emb_size,
+                 int_emb_size,
+                 basis_emb_size,
                  num_blocks,
-                 num_bilinear,
                  num_spherical,
                  num_radial,
                  cutoff=5.0,
@@ -53,8 +61,9 @@ class DimeNet(nn.Module):
                  num_after_skip=2,
                  num_dense_output=3,
                  num_targets=12,
-                 activation=swish):
-        super(DimeNet, self).__init__()
+                 activation=swish,
+                 extensive=True):
+        super(DimeNetPP, self).__init__()
 
         self.num_blocks = num_blocks
         self.num_radial = num_radial
@@ -79,24 +88,27 @@ class DimeNet(nn.Module):
         
         # output block
         self.output_blocks = nn.ModuleList({
-            OutputBlock(emb_size=emb_size,
-                        num_radial=num_radial,
-                        num_dense=num_dense_output,
-                        num_targets=num_targets,
-                        activation=activation) for _ in range(num_blocks + 1)
+            OutputPPBlock(emb_size=emb_size,
+                          out_emb_size=out_emb_size,
+                          num_radial=num_radial,
+                          num_dense=num_dense_output,
+                          num_targets=num_targets,
+                          activation=activation,
+                          extensive=extensive) for _ in range(num_blocks + 1)
         })
 
         # interaction block
         self.interaction_blocks = nn.ModuleList({
-            InteractionBlock(emb_size=emb_size,
-                             num_radial=num_radial,
-                             num_spherical=num_spherical,
-                             cutoff=cutoff,
-                             envelope_exponent=envelope_exponent,
-                             num_bilinear=num_bilinear,
-                             num_before_skip=num_before_skip,
-                             num_after_skip=num_after_skip,
-                             activation=activation) for _ in range(num_blocks)
+            InteractionPPBlock(emb_size=emb_size,
+                               int_emb_size=int_emb_size,
+                               basis_emb_size=basis_emb_size,
+                               num_radial=num_radial,
+                               num_spherical=num_spherical,
+                               cutoff=cutoff,
+                               envelope_exponent=envelope_exponent,
+                               num_before_skip=num_before_skip,
+                               num_after_skip=num_after_skip,
+                               activation=activation) for _ in range(num_blocks)
         })
     
     def edge_init(self, edges):
@@ -114,6 +126,7 @@ class DimeNet(nn.Module):
         sbf = edges.src['rbf_env'] * cbf  # [None, 42]
         return {'sbf': sbf}
     
+    @profile
     def forward(self, g, l_g):
         # add rbf features for each edge in one batch graph, [num_radial,]
         g = self.rbf_layer(g)
