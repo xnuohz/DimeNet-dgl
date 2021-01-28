@@ -28,7 +28,6 @@ class OutputPPBlock(nn.Module):
         nn.init.xavier_normal_(self.up_projection.weight)
         nn.init.zeros_(self.dense_final.weight)
 
-    @profile
     def forward(self, g):
         with g.local_scope():
             g.edata['tmp'] = g.edata['m'] * self.dense_rbf(g.edata['rbf'])

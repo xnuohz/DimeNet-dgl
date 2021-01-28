@@ -31,49 +31,41 @@ The DGL's built-in QM9 dataset. Dataset summary:
 
 ###### GPU options
 ```
---gpu       int   GPU index.                Default is -1, using CPU.
+gpu               int   GPU index.                Default is -1, using CPU.
 ```
 
 ###### Model options
 ```
---emb-size          int   Embedding size used throughout the model.                              Default is 128
---num-blocks        int   Number of building blocks to be stacked.                               Default is 6   
---num-bilinear      int   Third dimension of the bilinear layer tensor.                          Default is 8   
---num-spherical     int   Number of spherical harmonics.                                         Default is 7   
---num-radial        int   Number of radial basis functions.                                      Default is 6   
---envelope-exponent int   Shape of the smooth cutoff.                                            Default is 5   
---cutoff            float Cutoff distance for interatomic interactions.                          Default is 5.0 
---num-before-skip   int   Number of residual layers in interaction block before skip connection. Default is 1   
---num-after-skip    int   Number of residual layers in interaction block after skip connection.  Default is 2   
---num-dense-output  int   Number of dense layers for the output blocks.                          Default is 3   
---targets           list  List of targets to predict.                                            Default is ['mu']
+emb-size          int   Embedding size used throughout the model.                              Default is 128
+num-blocks        int   Number of building blocks to be stacked.                               Default is 6   
+num-bilinear      int   Third dimension of the bilinear layer tensor.                          Default is 8   
+num-spherical     int   Number of spherical harmonics.                                         Default is 7   
+num-radial        int   Number of radial basis functions.                                      Default is 6   
+envelope-exponent int   Shape of the smooth cutoff.                                            Default is 5   
+cutoff            float Cutoff distance for interatomic interactions.                          Default is 5.0 
+num-before-skip   int   Number of residual layers in interaction block before skip connection. Default is 1   
+num-after-skip    int   Number of residual layers in interaction block after skip connection.  Default is 2   
+num-dense-output  int   Number of dense layers for the output blocks.                          Default is 3   
+targets           list  List of targets to predict.                                            Default is ['mu']
 ```
 
 ###### Training options
 ```
---lr             float Learning rate.                                  Default is 0.001
---weight-decay   float Weight decay.                                   Default is 0.0001
---ema-decay      float EMA decay.                                      Default is 0.999
---batch-size     int   Batch size.                                     Default is 32
---epochs         int   Training epochs.                                Default is 800
---early-stopping int   Patient epochs to wait before early stopping.   Default is 20
---num-workers    int   Number of subprocesses to use for data loading. Default is 0
+lr                float Learning rate.                                  Default is 0.001
+weight-decay      float Weight decay.                                   Default is 0.0001
+ema-decay         float EMA decay.                                      Default is 0.999
+batch-size        int   Batch size.                                     Default is 32
+epochs            int   Training epochs.                                Default is 800
+early-stopping    int   Patient epochs to wait before early stopping.   Default is 20
+num-workers       int   Number of subprocesses to use for data loading. Default is 0
 ```
 
 ###### Examples
 
 The following commands learn a neural network and predict on the test set.
-Training a DimeNet model on QM9 dataset.
+Training a DimeNet++ model on QM9 dataset.
 ```bash
-python src/main.py
-```
-Train a model with target **homo** on GPU **0**.
-```bash
-python src/main.py --gpu 0 --targets homo
-```
-Performance analysis
-```bash
-kernprof -v -l src/main.py [options]
+python src/main.py --model-cnf src/config/dimenet_pp.yaml
 ```
 
 ### Performance

@@ -71,7 +71,6 @@ def evaluate(device, model, valid_loader):
 
 @click.command()
 @click.option('-m', '--model-cnf', type=click.Path(exists=True), help='Path of model config yaml.')
-@profile
 def main(model_cnf):
     yaml = YAML(typ='safe')
     model_cnf = yaml.load(Path(model_cnf))
@@ -178,6 +177,8 @@ def main(model_cnf):
                 no_improvement = 0
                 best_mae = valid_mae
                 best_model = copy.deepcopy(ema_model)
+        else:
+            logger.info(f'Epoch {i} | Train Loss {train_loss:.4f}')
 
     logger.info('Testing')
     predictions, labels = evaluate(device, ema_model, test_loader)

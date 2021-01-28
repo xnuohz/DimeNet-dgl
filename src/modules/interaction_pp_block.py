@@ -56,7 +56,6 @@ class InteractionPPBlock(nn.Module):
         nn.init.xavier_normal_(self.down_projection.weight)
         nn.init.xavier_normal_(self.up_projection.weight)
 
-    @profile
     def edge_transfer(self, edges):
         # Transform via Bessel basis
         rbf = self.dense_rbf1(edges.data['rbf'])
@@ -73,14 +72,12 @@ class InteractionPPBlock(nn.Module):
             x_kj = self.activation(x_kj)
         return {'x_kj': x_kj, 'x_ji': x_ji}
 
-    @profile
     def msg_func(self, edges):
         sbf = self.dense_sbf1(edges.data['sbf'])
         sbf = self.dense_sbf2(sbf)
         x_kj = edges.src['x_kj'] * sbf
         return {'x_kj': x_kj}
 
-    @profile
     def forward(self, g, l_g):
         g.apply_edges(self.edge_transfer)
         

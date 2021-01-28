@@ -49,7 +49,6 @@ class InteractionBlock(nn.Module):
         nn.init.xavier_normal_(self.dense_ji.weight)
         nn.init.xavier_normal_(self.dense_kj.weight)
 
-    @profile
     def edge_transfer(self, edges):
         # Transform via Bessel basis
         rbf = self.dense_rbf(edges.data['rbf'])
@@ -63,7 +62,6 @@ class InteractionBlock(nn.Module):
         # w: W * e_RBF \bigodot \sigma(W * m + b)
         return {'x_kj': x_kj * rbf, 'x_ji': x_ji}
 
-    @profile
     def msg_func(self, edges):
         sbf = self.dense_sbf(edges.data['sbf'])
         # Apply bilinear layer to interactions and basis function activation
@@ -72,7 +70,6 @@ class InteractionBlock(nn.Module):
         # x_kj = self.bilinear(sbf, edges.src['x_kj'])
         return {'x_kj': x_kj}
 
-    @profile
     def forward(self, g, l_g):
         g.apply_edges(self.edge_transfer)
         

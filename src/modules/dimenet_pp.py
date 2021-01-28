@@ -126,7 +126,6 @@ class DimeNetPP(nn.Module):
         sbf = edges.src['rbf_env'] * cbf  # [None, 42]
         return {'sbf': sbf}
     
-    @profile
     def forward(self, g, l_g):
         # add rbf features for each edge in one batch graph, [num_radial,]
         g = self.rbf_layer(g)
