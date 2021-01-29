@@ -13,17 +13,13 @@ from dgl import backend as F
 
 class QM9Dataset(DGLDataset):
     r"""QM9 dataset for graph property prediction (regression)
-
     This dataset consists of 13,0831 molecules with 12 regression targets.
     Node means atom and edge means bond.
-
     Reference: `"Quantum-Machine.org" <http://quantum-machine.org/datasets/>`_, `"Directional Message Passing for Molecular Graphs" <https://arxiv.org/abs/2003.03123>`_
     
     Statistics:
-
     - Number of graphs: 13,0831
     - Number of regression targets: 12
-
     +--------+----------------------------------+-----------------------------------------------------------------------------------+---------------------------------------------+
     | Keys   | Property                         | Description                                                                       | Unit                                        |
     +========+==================================+===================================================================================+=============================================+
@@ -51,7 +47,6 @@ class QM9Dataset(DGLDataset):
     +--------+----------------------------------+-----------------------------------------------------------------------------------+---------------------------------------------+
     | Cv     | :math:`c_{\textrm{v}}`           | Heat capavity at 298.15K                                                          | :math:`\frac{\textrm{cal}}{\textrm{mol K}}` |
     +--------+----------------------------------+-----------------------------------------------------------------------------------+---------------------------------------------+
-
     Parameters
     ----------
     label_keys: list
@@ -66,12 +61,10 @@ class QM9Dataset(DGLDataset):
         Whether to reload the dataset. Default: False
     verbose: bool
         Whether to print out progress information. Default: True.
-
     Attributes
     ----------
     num_labels : int
         Number of labels for each graph, i.e. number of prediction tasks
-
     Raises
     ------
     UserWarning
@@ -115,8 +108,7 @@ class QM9Dataset(DGLDataset):
         """ step 1, if True, goto step 5 """
         graph_path = f'{self.save_path}/dgl_graph.bin'
         line_graph_path = f'{self.save_path}/dgl_line_graph.bin'
-        label_path = f'{self.save_path}/label.npy'
-        return os.path.exists(graph_path) and os.path.exists(line_graph_path) and os.path.exists(label_path)
+        return os.path.exists(graph_path) and os.path.exists(line_graph_path)
     
     def download(self):
         """ step 2 """
@@ -136,12 +128,11 @@ class QM9Dataset(DGLDataset):
         self.Z = data_dict['Z']
         self.N_cumsum = np.concatenate([[0], np.cumsum(self.N)])
         # graph labels
-        self.label_all = {}
+        self.label_dict = {}
         for k in self._keys:
-            self.label_all[k] = data_dict[k]
+            self.label_dict[k] = F.tensor(data_dict[k], dtype=F.data_type_dict['float32'])
 
-        label = np.stack([self.label_all[k] for k in self.label_keys], axis=1)
-        self.label = F.tensor(label, dtype=F.data_type_dict['float32'])
+        self.label = F.stack([self.label_dict[key] for key in self.label_keys], dim=1)
         # graph features
         self.graphs, self.line_graphs = self._load_graph()
     
@@ -178,21 +169,16 @@ class QM9Dataset(DGLDataset):
         """ step 4 """
         graph_path = f'{self.save_path}/dgl_graph.bin'
         line_graph_path = f'{self.save_path}/dgl_line_graph.bin'
-        label_path = f'{self.save_path}/label.npy'
-        save_graphs(str(graph_path), self.graphs)
+        save_graphs(str(graph_path), self.graphs, self.label_dict)
         save_graphs(str(line_graph_path), self.line_graphs)
-        np.save(label_path, self.label_all)
 
     def load(self):
         """ step 5 """
         graph_path = f'{self.save_path}/dgl_graph.bin'
         line_graph_path = f'{self.save_path}/dgl_line_graph.bin'
-        label_path = f'{self.save_path}/label.npy'
-        self.graphs, _ = load_graphs(graph_path)
+        self.graphs, label_dict = load_graphs(graph_path)
         self.line_graphs, _ = load_graphs(line_graph_path)
-        label_all = np.load(label_path)
-        label = np.stack([label_all[k] for k in self.label_keys], axis=1)
-        self.label = F.tensor(label, dtype=F.data_type_dict['float32'])
+        self.label = F.stack([label_dict[key] for key in self.label_keys], dim=1)
 
     @property
     def num_labels(self):
@@ -206,7 +192,6 @@ class QM9Dataset(DGLDataset):
 
     def __getitem__(self, idx):
         r""" Get graph and label by index
-
         Parameters
         ----------
         idx : int
@@ -216,10 +201,8 @@ class QM9Dataset(DGLDataset):
         -------
         dgl.DGLGraph
             The graph contains:
-
             - ``ndata['R']``: the coordinates of each atom
             - ``ndata['Z']``: the atomic number
-
         Tensor
             Property values of molecular graphs
         """
@@ -227,7 +210,6 @@ class QM9Dataset(DGLDataset):
 
     def __len__(self):
         r"""Number of graphs in the dataset.
-
         Return
         -------
         int
