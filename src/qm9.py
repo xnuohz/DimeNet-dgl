@@ -4,6 +4,7 @@ import numpy as np
 import scipy.sparse as sp
 import dgl
 
+from tqdm import trange
 from dgl.data import DGLDataset
 from dgl.data.utils import download, _get_dgl_url, load_graphs, save_graphs
 from dgl.convert import graph as dgl_graph
@@ -102,6 +103,7 @@ class QM9Dataset(DGLDataset):
         self.label_keys = label_keys
         self.edge_funcs = edge_funcs
         self._url = _get_dgl_url('dataset/qm9_eV.npz')
+        self._keys = ['mu', 'alpha', 'homo', 'lumo', 'gap', 'r2', 'zpve', 'U0', 'U', 'H', 'G', 'Cv']
 
         super(QM9Dataset, self).__init__(name='qm9',
                                          url=self._url,
@@ -113,7 +115,8 @@ class QM9Dataset(DGLDataset):
         """ step 1, if True, goto step 5 """
         graph_path = f'{self.save_path}/dgl_graph.bin'
         line_graph_path = f'{self.save_path}/dgl_line_graph.bin'
-        return os.path.exists(graph_path) and os.path.exists(line_graph_path)
+        label_path = f'{self.save_path}/label.npy'
+        return os.path.exists(graph_path) and os.path.exists(line_graph_path) and os.path.exists(label_path)
     
     def download(self):
         """ step 2 """
@@ -133,7 +136,11 @@ class QM9Dataset(DGLDataset):
         self.Z = data_dict['Z']
         self.N_cumsum = np.concatenate([[0], np.cumsum(self.N)])
         # graph labels
-        label = np.stack([data_dict[key] for key in self.label_keys], axis=1)
+        self.label_all = {}
+        for k in self._keys:
+            self.label_all[k] = data_dict[k]
+
+        label = np.stack([self.label_all[k] for k in self.label_keys], axis=1)
         self.label = F.tensor(label, dtype=F.data_type_dict['float32'])
         # graph features
         self.graphs, self.line_graphs = self._load_graph()
@@ -143,8 +150,7 @@ class QM9Dataset(DGLDataset):
         graphs = []
         line_graphs = []
         
-        for idx in range(num_graphs):
-            print(f'{idx + 1}/{num_graphs}')
+        for idx in trange(num_graphs):
             n_atoms = self.N[idx]
             R = self.R[self.N_cumsum[idx]:self.N_cumsum[idx + 1]]
             dist = np.linalg.norm(R[:, None, :] - R[None, :, :], axis=-1)
@@ -172,16 +178,21 @@ class QM9Dataset(DGLDataset):
         """ step 4 """
         graph_path = f'{self.save_path}/dgl_graph.bin'
         line_graph_path = f'{self.save_path}/dgl_line_graph.bin'
-        save_graphs(str(graph_path), self.graphs, {'labels': self.label})
+        label_path = f'{self.save_path}/label.npy'
+        save_graphs(str(graph_path), self.graphs)
         save_graphs(str(line_graph_path), self.line_graphs)
+        np.save(label_path, self.label_all)
 
     def load(self):
         """ step 5 """
         graph_path = f'{self.save_path}/dgl_graph.bin'
         line_graph_path = f'{self.save_path}/dgl_line_graph.bin'
-        self.graphs, label_dict = load_graphs(graph_path)
+        label_path = f'{self.save_path}/label.npy'
+        self.graphs, _ = load_graphs(graph_path)
         self.line_graphs, _ = load_graphs(line_graph_path)
-        self.label = label_dict['labels']
+        label_all = np.load(label_path)
+        label = np.stack([label_all[k] for k in self.label_keys], axis=1)
+        self.label = F.tensor(label, dtype=F.data_type_dict['float32'])
 
     @property
     def num_labels(self):
