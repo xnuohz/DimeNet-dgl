@@ -73,7 +73,7 @@ python src/main.py --model-cnf src/config/dimenet_pp.yaml
 | Target | mu | alpha | homo | lumo | gap | r2 | zpve | U0 | U | H | G | Cv |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | MAE(DimeNet in Table 1) | 0.0286 | 0.0469 | 27.8 | 19.7 | 34.8 | 0.331 | 1.29 | 8.02 | 7.89 | 8.11 | 8.98 | 0.0249 |
-| MAE(DGL) |  |  |  |  |  |  |  |  |  |  |  |  |
+| MAE(DGL) | 2.6134 | 49.40 | 4.88 | 1.03 |  |  |  |  | 49.1 | 47.6 | 41.1 | 23.653 |
 
 ### Speed
 
