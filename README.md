@@ -74,7 +74,6 @@ python src/main.py --model-cnf src/config/dimenet_pp.yaml
 
 ### Performance
 
-- data split is different
 - batch size is different
 - linear learning rate warm-up is not used
 - exponential learning rate decay is not used

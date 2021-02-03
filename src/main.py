@@ -11,11 +11,48 @@ from logzero import logger
 from pathlib import Path
 from ruamel.yaml import YAML
 from torch.utils.data import DataLoader
-from dgl.data.utils import split_dataset
+from dgl.data.utils import Subset
 from sklearn.metrics import mean_absolute_error
 from qm9 import QM9
 from modules.dimenet import DimeNet
 from modules.dimenet_pp import DimeNetPP
+
+def split_dataset(dataset, num_train, num_valid, shuffle=False, random_state=None):
+    """Split dataset into training, validation and test set.
+
+    Parameters
+    ----------
+    dataset
+        We assume ``len(dataset)`` gives the number of datapoints and ``dataset[i]``
+        gives the ith datapoint.
+    num_train : int
+        Number of training datapoints
+    num_valid : int
+        Number of validation datapoints
+    shuffle : bool, optional
+        By default we perform a consecutive split of the dataset. If True,
+        we will first randomly shuffle the dataset.
+    random_state : None, int or array_like, optional
+        Random seed used to initialize the pseudo-random number generator.
+        Can be any integer between 0 and 2**32 - 1 inclusive, an array
+        (or other sequence) of such integers, or None (the default).
+        If seed is None, then RandomState will try to read data from /dev/urandom
+        (or the Windows analogue) if available or seed from the clock otherwise.
+
+    Returns
+    -------
+    list of length 3
+        Subsets for training, validation and test.
+    """
+    from itertools import accumulate
+    num_data = len(dataset)
+    assert num_train + num_valid < num_data
+    lengths = [num_train, num_valid, num_data - num_train - num_valid]
+    if shuffle:
+        indices = np.random.RandomState(seed=random_state).permutation(num_data)
+    else:
+        indices = np.arange(num_data)
+    return [Subset(dataset, indices[offset - length:offset]) for offset, length in zip(accumulate(lengths), lengths)]
 
 @torch.no_grad()
 def ema(ema_model, model, decay):
@@ -83,7 +120,11 @@ def main(model_cnf):
     dataset = QM9(label_keys=model_params['targets'], edge_funcs=[edge_init])
 
     # data split
-    train_data, valid_data, test_data = split_dataset(dataset, random_state=42)
+    train_data, valid_data, test_data = split_dataset(dataset,
+                                                      num_train=train_params['num_train'],
+                                                      num_valid=train_params['num_valid'],
+                                                      shuffle=True,
+                                                      random_state=train_params['data_seed'])
     logger.info(f'Size of Training Set: {len(train_data)}')
     logger.info(f'Size of Validation Set: {len(valid_data)}')
     logger.info(f'Size of Test Set: {len(test_data)}')
