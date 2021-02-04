@@ -2,16 +2,20 @@ import torch.nn as nn
 import dgl
 import dgl.function as fn
 
+from modules.initializers import GlorotOrthogonal
+
 class OutputBlock(nn.Module):
     def __init__(self,
                  emb_size,
                  num_radial,
                  num_dense,
                  num_targets,
-                 activation=None):
+                 activation=None,
+                 output_init=nn.init.zeros_):
         super(OutputBlock, self).__init__()
 
         self.activation = activation
+        self.output_init = output_init
         self.dense_rbf = nn.Linear(num_radial, emb_size, bias=False)
         self.dense_layers = nn.ModuleList([
             nn.Linear(emb_size, emb_size) for _ in range(num_dense)
@@ -20,22 +24,19 @@ class OutputBlock(nn.Module):
         self.reset_params()
     
     def reset_params(self):
-        nn.init.xavier_normal_(self.dense_rbf.weight)
-        nn.init.zeros_(self.dense_final.weight)
-    
-    def node_udf(self, nodes):
-        t = nodes.data['t']
+        GlorotOrthogonal(self.dense_rbf.weight)
         for layer in self.dense_layers:
-            t = layer(t)
-            if self.activation is not None:
-                t = self.activation(t)
-        
-        t = self.dense_final(t)
-        return {'p': t}
+            GlorotOrthogonal(layer.weight)
+        self.output_init(self.dense_final.weight)
 
     def forward(self, g):
         with g.local_scope():
             g.edata['tmp'] = g.edata['m'] * self.dense_rbf(g.edata['rbf'])
             g.update_all(fn.copy_e('tmp', 'x'), fn.sum('x', 't'))
-            g.apply_nodes(self.node_udf)
-            return dgl.readout_nodes(g, 'p')
+
+            for layer in self.dense_layers:
+                g.ndata['t'] = layer(g.ndata['t'])
+                if self.activation is not None:
+                    g.ndata['t'] = self.activation(g.ndata['t'])
+            g.ndata['t'] = self.dense_final(g.ndata['t'])
+            return dgl.readout_nodes(g, 't')

@@ -1,7 +1,9 @@
+import numpy as np
 import torch
 import torch.nn as nn
 
 from modules.envelope import Envelope
+from modules.initializers import GlorotOrthogonal
 
 class EmbeddingBlock(nn.Module):
     def __init__(self,
@@ -10,7 +12,7 @@ class EmbeddingBlock(nn.Module):
                  bessel_funcs,
                  cutoff,
                  envelope_exponent,
-                 num_atom_types=100,
+                 num_atom_types=95,
                  activation=None):
         super(EmbeddingBlock, self).__init__()
 
@@ -21,9 +23,15 @@ class EmbeddingBlock(nn.Module):
         self.embedding = nn.Embedding(num_atom_types, emb_size, padding_idx=0)
         self.dense_rbf = nn.Linear(num_radial, emb_size)
         self.dense = nn.Linear(emb_size * 3, emb_size)
+        self.reset_params()
+    
+    def reset_params(self):
+        nn.init.uniform_(embedding.weight, a=-np.sqrt(3), b=np.sqrt(3))
+        GlorotOrthogonal(self.dense_sbf.weight)
+        GlorotOrthogonal(self.dense.weight)
 
     def edge_init(self, edges):
-        """ msg emb init: """
+        """ msg emb init """
         # m init
         rbf = self.dense_rbf(edges.data['rbf'])
         if self.activation is not None:

@@ -7,6 +7,7 @@ import dgl.function as fn
 from modules.residual_layer import ResidualLayer
 from modules.basis_utils import bessel_basis, real_sph_harm
 from modules.envelope import Envelope
+from modules.initializers import GlorotOrthogonal
 
 class InteractionPPBlock(nn.Module):
     def __init__(self,
@@ -47,14 +48,14 @@ class InteractionPPBlock(nn.Module):
         self.reset_params()
     
     def reset_params(self):
-        nn.init.xavier_normal_(self.dense_rbf1.weight)
-        nn.init.xavier_normal_(self.dense_rbf2.weight)
-        nn.init.xavier_normal_(self.dense_sbf1.weight)
-        nn.init.xavier_normal_(self.dense_sbf2.weight)
-        nn.init.xavier_normal_(self.dense_ji.weight)
-        nn.init.xavier_normal_(self.dense_kj.weight)
-        nn.init.xavier_normal_(self.down_projection.weight)
-        nn.init.xavier_normal_(self.up_projection.weight)
+        GlorotOrthogonal(self.dense_rbf1.weight)
+        GlorotOrthogonal(self.dense_rbf2.weight)
+        GlorotOrthogonal(self.dense_sbf1.weight)
+        GlorotOrthogonal(self.dense_sbf2.weight)
+        GlorotOrthogonal(self.dense_ji.weight)
+        GlorotOrthogonal(self.dense_kj.weight)
+        GlorotOrthogonal(self.down_projection.weight)
+        GlorotOrthogonal(self.up_projection.weight)
 
     def edge_transfer(self, edges):
         # Transform via Bessel basis

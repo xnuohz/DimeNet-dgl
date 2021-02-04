@@ -62,7 +62,8 @@ class DimeNetPP(nn.Module):
                  num_dense_output=3,
                  num_targets=12,
                  activation=swish,
-                 extensive=True):
+                 extensive=True,
+                 output_init=nn.init.zeros_):
         super(DimeNetPP, self).__init__()
 
         self.num_blocks = num_blocks
@@ -94,7 +95,8 @@ class DimeNetPP(nn.Module):
                           num_dense=num_dense_output,
                           num_targets=num_targets,
                           activation=activation,
-                          extensive=extensive) for _ in range(num_blocks + 1)
+                          extensive=extensive,
+                          output_init=output_init) for _ in range(num_blocks + 1)
         })
 
         # interaction block

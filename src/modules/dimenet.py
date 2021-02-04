@@ -53,7 +53,8 @@ class DimeNet(nn.Module):
                  num_after_skip=2,
                  num_dense_output=3,
                  num_targets=12,
-                 activation=swish):
+                 activation=swish,
+                 output_init=nn.init.zeros_):
         super(DimeNet, self).__init__()
 
         self.num_blocks = num_blocks
@@ -83,7 +84,8 @@ class DimeNet(nn.Module):
                         num_radial=num_radial,
                         num_dense=num_dense_output,
                         num_targets=num_targets,
-                        activation=activation) for _ in range(num_blocks + 1)
+                        activation=activation,
+                        output_init=output_init) for _ in range(num_blocks + 1)
         })
 
         # interaction block

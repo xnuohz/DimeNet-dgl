@@ -34,25 +34,29 @@ The DGL's built-in QM9 dataset. Dataset summary:
 
 ###### Model options
 ```
-emb_size          int   Embedding size used throughout the model.                              Default is 128
-out_emb_size      int   Output embedding size used in DimeNet++.                               Default is 256
-int_emb_size      int   Input embedding size used in DimeNet++.                                Default is 64
-basis_emb_size    int   Basis embedding size used in DimeNet++.                                Default is 8
-num_blocks        int   Number of building blocks to be stacked.                               Default is 6   
-num_bilinear      int   Third dimension of the bilinear layer tensor in DimeNet.               Default is 8   
-num_spherical     int   Number of spherical harmonics.                                         Default is 7   
-num_radial        int   Number of radial basis functions.                                      Default is 6   
-envelope_exponent int   Shape of the smooth cutoff.                                            Default is 5   
-cutoff            float Cutoff distance for interatomic interactions.                          Default is 5.0 
-extensive         bool  Readout operator for generating a graph-level representation.          Default is True 
-num_before_skip   int   Number of residual layers in interaction block before skip connection. Default is 1   
-num_after_skip    int   Number of residual layers in interaction block after skip connection.  Default is 2   
-num_dense_output  int   Number of dense layers for the output blocks.                          Default is 3   
-targets           list  List of targets to predict.                                            Default is ['mu']
+emb_size          int    Embedding size used throughout the model.                              Default is 128
+out_emb_size      int    Output embedding size used in DimeNet++.                               Default is 256
+int_emb_size      int    Input embedding size used in DimeNet++.                                Default is 64
+basis_emb_size    int    Basis embedding size used in DimeNet++.                                Default is 8
+num_blocks        int    Number of building blocks to be stacked.                               Default is 6   
+num_bilinear      int    Third dimension of the bilinear layer tensor in DimeNet.               Default is 8   
+num_spherical     int    Number of spherical harmonics.                                         Default is 7   
+num_radial        int    Number of radial basis functions.                                      Default is 6   
+envelope_exponent int    Shape of the smooth cutoff.                                            Default is 5   
+cutoff            float  Cutoff distance for interatomic interactions.                          Default is 5.0 
+extensive         bool   Readout operator for generating a graph-level representation.          Default is True 
+num_before_skip   int    Number of residual layers in interaction block before skip connection. Default is 1   
+num_after_skip    int    Number of residual layers in interaction block after skip connection.  Default is 2   
+num_dense_output  int    Number of dense layers for the output blocks.                          Default is 3   
+targets           list   List of targets to predict.                                            Default is ['mu']
+output_init       string Initial function name for output layer.                                Default is 'GlorotOrthogonal'
 ```
 
 ###### Training options
 ```
+num_train         int   Number of train samples.                        Default is 110000
+num_valid         int   Number of valid samples.                        Default is 10000
+data_seed         int   Random seed.                                    Default is 42
 lr                float Learning rate.                                  Default is 0.001
 weight_decay      float Weight decay.                                   Default is 0.0001
 ema_decay         float EMA decay.                                      Default is 0.999
@@ -78,7 +82,6 @@ python src/main.py --model-cnf src/config/dimenet_pp.yaml
 - linear learning rate warm-up is not used
 - exponential learning rate decay is not used
 - exponential moving average (EMA) is closed
-- xavier_normal_ is used for all learnable weights
 
 | Target | mu | alpha | homo | lumo | gap | r2 | zpve | U0 | U | H | G | Cv |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |

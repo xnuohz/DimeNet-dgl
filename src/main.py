@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from dgl.data.utils import Subset
 from sklearn.metrics import mean_absolute_error
 from qm9 import QM9
+from modules.initializers import GlorotOrthogonal
 from modules.dimenet import DimeNet
 from modules.dimenet_pp import DimeNetPP
 
@@ -116,6 +117,11 @@ def main(model_cnf):
     logger.info(f'Model params: {model_params}')
     logger.info(f'Train params: {train_params}')
 
+    if model_params['output_init'] == 'zeros':
+        model_params['output_init'] = nn.init.zeros_
+    else:
+        model_params['output_init'] = GlorotOrthogonal
+
     logger.info('Loading Data Set')
     dataset = QM9(label_keys=model_params['targets'], edge_funcs=[edge_init])
 
@@ -165,7 +171,8 @@ def main(model_cnf):
                         num_before_skip=model_params['num_before_skip'],
                         num_after_skip=model_params['num_after_skip'],
                         num_dense_output=model_params['num_dense_output'],
-                        num_targets=len(model_params['targets'])).to(device)
+                        num_targets=len(model_params['targets']),
+                        output_init=model_params['output_init']).to(device)
     elif model_name == 'dimenet++':
         model = DimeNetPP(emb_size=model_params['emb_size'],
                           out_emb_size=model_params['out_emb_size'],
@@ -180,7 +187,8 @@ def main(model_cnf):
                           num_after_skip=model_params['num_after_skip'],
                           num_dense_output=model_params['num_dense_output'],
                           num_targets=len(model_params['targets']),
-                          extensive=model_params['extensive']).to(device)
+                          extensive=model_params['extensive'],
+                          output_init=model_params['output_init']).to(device)
     else:
         raise ValueError(f'Invalid Model Name {model_name}')
     # define loss function and optimization

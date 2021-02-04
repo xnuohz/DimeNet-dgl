@@ -1,5 +1,7 @@
 import torch.nn as nn
 
+from modules.initializers import GlorotOrthogonal
+
 class ResidualLayer(nn.Module):
     def __init__(self,
                  units,
@@ -14,8 +16,10 @@ class ResidualLayer(nn.Module):
         self.reset_params()
     
     def reset_params(self):
-        nn.init.xavier_normal_(self.dense_1.weight)
-        nn.init.xavier_normal_(self.dense_2.weight)
+        GlorotOrthogonal(self.dense_1.weight)
+        nn.init.zeros_(self.dense_1.bias)
+        GlorotOrthogonal(self.dense_2.weight)
+        nn.init.zeros_(self.dense_2.bias)
 
     def forward(self, inputs):
         x = self.dense_1(inputs)
