@@ -26,8 +26,8 @@ class EmbeddingBlock(nn.Module):
         self.reset_params()
     
     def reset_params(self):
-        nn.init.uniform_(embedding.weight, a=-np.sqrt(3), b=np.sqrt(3))
-        GlorotOrthogonal(self.dense_sbf.weight)
+        nn.init.uniform_(self.embedding.weight, a=-np.sqrt(3), b=np.sqrt(3))
+        GlorotOrthogonal(self.dense_rbf.weight)
         GlorotOrthogonal(self.dense.weight)
 
     def edge_init(self, edges):
