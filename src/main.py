@@ -53,6 +53,7 @@ def split_dataset(dataset, num_train, num_valid, shuffle=False, random_state=Non
         indices = np.random.RandomState(seed=random_state).permutation(num_data)
     else:
         indices = np.arange(num_data)
+    print(indices[num_train + num_valid:])
     return [Subset(dataset, indices[offset - length:offset]) for offset, length in zip(accumulate(lengths), lengths)]
 
 @torch.no_grad()
@@ -101,9 +102,11 @@ def evaluate(device, model, valid_loader):
     for g, l_g, labels in valid_loader:
         g = g.to(device)
         l_g = l_g.to(device)
+        print('targets: ', labels)
         logits = model(g, l_g)
         labels_all.extend(labels)
         predictions_all.extend(logits.view(-1,).cpu().numpy())
+        break
     
     return np.array(predictions_all), np.array(labels_all)
 
@@ -112,7 +115,7 @@ def evaluate(device, model, valid_loader):
 def main(model_cnf):
     yaml = YAML(typ='safe')
     model_cnf = yaml.load(Path(model_cnf))
-    model_name, model_params, train_params = model_cnf['name'], model_cnf['model'], model_cnf['train']
+    model_name, model_params, train_params, pretrain_params = model_cnf['name'], model_cnf['model'], model_cnf['train'], model_cnf['pretrain']
     logger.info(f'Model name: {model_name}')
     logger.info(f'Model params: {model_params}')
     logger.info(f'Train params: {train_params}')
@@ -191,6 +194,17 @@ def main(model_cnf):
                           output_init=model_params['output_init']).to(device)
     else:
         raise ValueError(f'Invalid Model Name {model_name}')
+
+    if pretrain_params['flag']:
+        torch_path = pretrain_params['path']
+        target = model_params['targets'][0]
+        model.load_state_dict(torch.load(f'{torch_path}/{target}.pt'))
+
+        logger.info('Testing with Pretrained model')
+        predictions, labels = evaluate(device, model, test_loader)
+        test_mae = mean_absolute_error(labels, predictions)
+        logger.info(f'Test MAE {test_mae:.4f}')
+        return
     # define loss function and optimization
     loss_fn = nn.L1Loss()
     opt = optim.Adam(model.parameters(), lr=train_params['lr'], weight_decay=train_params['weight_decay'], amsgrad=True)

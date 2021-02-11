@@ -106,7 +106,6 @@ class DimeNetPP(nn.Module):
                                basis_emb_size=basis_emb_size,
                                num_radial=num_radial,
                                num_spherical=num_spherical,
-                               cutoff=cutoff,
                                envelope_exponent=envelope_exponent,
                                num_before_skip=num_before_skip,
                                num_after_skip=num_after_skip,
@@ -136,6 +135,8 @@ class DimeNetPP(nn.Module):
         # Output block
         P = self.output_blocks[0](g)  # [batch_size, num_targets]
         # Prepare sbf feature before the following blocks
+        print('g: ', g)
+        print('P: ', P)
         for k, v in g.edata.items():
             l_g.ndata[k] = v
 

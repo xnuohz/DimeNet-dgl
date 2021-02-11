@@ -139,5 +139,6 @@ Icon
 /result
 /notebook
 /log-history
+/pretrained
 __pycache__/
 *.lprof

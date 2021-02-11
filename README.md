@@ -75,6 +75,10 @@ Training a DimeNet++ model on QM9 dataset.
 ```bash
 python src/main.py --model-cnf src/config/dimenet_pp.yaml
 ```
+Convert a TensorFlow model to PyTorch Model
+```
+python src/convert_tf_ckpt_to_pytorch.py --model-cnf src/config/dimenet_pp.yaml --convert-cnf src/config/convert.yaml
+```
 
 ### Performance
 
@@ -85,9 +89,10 @@ python src/main.py --model-cnf src/config/dimenet_pp.yaml
 
 | Target | mu | alpha | homo | lumo | gap | r2 | zpve | U0 | U | H | G | Cv |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| MAE(DimeNet in Table 1) | 0.0286 | 0.0469 | 27.8 | 19.7 | 34.8 | 0.331 | 1.29 | 8.02 | 7.89 | 8.11 | 8.98 | 0.0249 |
+| MAE(DimeNet in Table 1)   | 0.0286 | 0.0469 | 27.8 | 19.7 | 34.8 | 0.331 | 1.29 | 8.02 | 7.89 | 8.11 | 8.98 | 0.0249 |
 | MAE(DimeNet++ in Table 2) | 0.0297 | 0.0435 | 24.6 | 19.5 | 32.6 | 0.331 | 1.21 | 6.32 | 6.28 | 6.53 | 7.56 | 0.0230 |
-| MAE(DimeNet++, DGL) | 0.0499 | 0.0811 | 0.0407 | 0.0399 | 0.0673 | 0.7449 | 0.0033 |  | 0.06 | 0.06 | 0.05 | 0.0807 |
+| MAE(DimeNet++, TF)        | 0.0297/0.033 | 0.0435 | 0.0246 | 0.0195/0.0227 | -/0. | 0.3312 | 0.00121 | 0.0063 | 0.00628 | 0.00653 | 0.00756 | 0.0230 |
+| MAE(DimeNet++, DGL)       | 0.0536 | 0.0726 | 0.0389 | 0.0434 | 0.0568 | 0.6437 | 0.00520 | 0.7269 | 0.0336 | 0.0205 | 0.0477 | 0.0357 |
 
 ### Speed
 

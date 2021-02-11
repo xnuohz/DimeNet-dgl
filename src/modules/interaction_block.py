@@ -14,7 +14,6 @@ class InteractionBlock(nn.Module):
                  emb_size,
                  num_radial,
                  num_spherical,
-                 cutoff,
                  envelope_exponent,
                  num_bilinear,
                  num_before_skip,

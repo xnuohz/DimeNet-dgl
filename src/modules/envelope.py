@@ -8,14 +8,16 @@ class Envelope(nn.Module):
     def __init__(self, exponent):
         super(Envelope, self).__init__()
 
-        self.exponent = exponent
         self.p = exponent + 1
         self.a = -(self.p + 1) * (self.p + 2) / 2
         self.b = self.p * (self.p + 2)
         self.c = -self.p * (self.p + 1) / 2
     
-    def forward(self, inputs):
+    def forward(self, x):
         # Envelope function divided by r
-        # u(d) / d
-        env_val = 1 / inputs + self.a * inputs ** (self.p - 1) + self.b * inputs ** self.p + self.c * inputs ** (self.p + 1)
-        return torch.where(inputs < 1, env_val, torch.zeros_like(inputs))
+        x_p_0 = x.pow(self.p - 1)
+        x_p_1 = x_p_0 * x
+        x_p_2 = x_p_1 * x
+        env_val = 1 / x + self.a * x_p_0 + self.b * x_p_1 + self.c * x_p_2
+        # return torch.where(inputs < 1, env_val, torch.zeros_like(inputs))
+        return env_val

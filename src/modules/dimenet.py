@@ -93,7 +93,6 @@ class DimeNet(nn.Module):
             InteractionBlock(emb_size=emb_size,
                              num_radial=num_radial,
                              num_spherical=num_spherical,
-                             cutoff=cutoff,
                              envelope_exponent=envelope_exponent,
                              num_bilinear=num_bilinear,
                              num_before_skip=num_before_skip,

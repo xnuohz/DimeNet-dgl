@@ -16,7 +16,6 @@ class InteractionPPBlock(nn.Module):
                  basis_emb_size,
                  num_radial,
                  num_spherical,
-                 cutoff,
                  envelope_exponent,
                  num_before_skip,
                  num_after_skip,
@@ -53,7 +52,9 @@ class InteractionPPBlock(nn.Module):
         GlorotOrthogonal(self.dense_sbf1.weight)
         GlorotOrthogonal(self.dense_sbf2.weight)
         GlorotOrthogonal(self.dense_ji.weight)
+        nn.init.zeros_(self.dense_ji.bias)
         GlorotOrthogonal(self.dense_kj.weight)
+        nn.init.zeros_(self.dense_kj.bias)
         GlorotOrthogonal(self.down_projection.weight)
         GlorotOrthogonal(self.up_projection.weight)
 

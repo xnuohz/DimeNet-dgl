@@ -20,7 +20,7 @@ class EmbeddingBlock(nn.Module):
         self.cutoff = cutoff
         self.activation = activation
         self.envelope = Envelope(envelope_exponent)
-        self.embedding = nn.Embedding(num_atom_types, emb_size, padding_idx=0)
+        self.embedding = nn.Embedding(num_atom_types, emb_size)
         self.dense_rbf = nn.Linear(num_radial, emb_size)
         self.dense = nn.Linear(emb_size * 3, emb_size)
         self.reset_params()
@@ -53,6 +53,6 @@ class EmbeddingBlock(nn.Module):
         return {'m': m, 'rbf_env': rbf_env}
 
     def forward(self, g):
-        g.apply_nodes(lambda nodes: {'h': self.embedding(nodes.data['Z'])})
+        g.ndata['h'] = self.embedding(g.ndata['Z'])
         g.apply_edges(self.edge_init)
         return g

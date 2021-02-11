@@ -3,15 +3,12 @@ import torch.nn as nn
 from modules.initializers import GlorotOrthogonal
 
 class ResidualLayer(nn.Module):
-    def __init__(self,
-                 units,
-                 activation=None,
-                 use_bias=True):
+    def __init__(self, units, activation=None):
         super(ResidualLayer, self).__init__()
 
         self.activation = activation
-        self.dense_1 = nn.Linear(units, units, bias=use_bias)
-        self.dense_2 = nn.Linear(units, units, bias=use_bias)
+        self.dense_1 = nn.Linear(units, units)
+        self.dense_2 = nn.Linear(units, units)
     
         self.reset_params()
     
