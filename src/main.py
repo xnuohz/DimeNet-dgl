@@ -53,7 +53,6 @@ def split_dataset(dataset, num_train, num_valid, shuffle=False, random_state=Non
         indices = np.random.RandomState(seed=random_state).permutation(num_data)
     else:
         indices = np.arange(num_data)
-    print(indices[num_train + num_valid:])
     return [Subset(dataset, indices[offset - length:offset]) for offset, length in zip(accumulate(lengths), lengths)]
 
 @torch.no_grad()
