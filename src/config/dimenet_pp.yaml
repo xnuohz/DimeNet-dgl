@@ -32,6 +32,8 @@ train:
   num_workers: 18
   gpu: 0
   interval: 50
+  step_size: 600
+  gamma: 0.1
 
 pretrain:
   flag: False

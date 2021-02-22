@@ -207,6 +207,7 @@ def main(model_cnf):
     # define loss function and optimization
     loss_fn = nn.L1Loss()
     opt = optim.Adam(model.parameters(), lr=train_params['lr'], weight_decay=train_params['weight_decay'], amsgrad=True)
+    scheduler = optim.lr_scheduler.StepLR(opt, train_params['step_size'], gamma=train_params['gamma'])
 
     # model training
     best_mae = 1e9
@@ -241,6 +242,8 @@ def main(model_cnf):
                 best_model = copy.deepcopy(ema_model)
         else:
             logger.info(f'Epoch {i} | Train Loss {train_loss:.4f}')
+        
+        scheduler.step()
 
     logger.info('Testing')
     predictions, labels = evaluate(device, ema_model, test_loader)
