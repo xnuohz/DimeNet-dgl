@@ -120,11 +120,11 @@ class DimeNetPP(nn.Module):
         y = torch.norm(y, dim=-1)
         angle = torch.atan2(y, x)
         # Transform via angles
-        # cbf = [f(angle) for f in self.sph_funcs]
         cbf = [f(angle) for f in self.sbf_layer.get_sph_funcs()]
         cbf = torch.stack(cbf, dim=1)  # [None, 7]
         cbf = cbf.repeat_interleave(self.num_radial, dim=1)  # [None, 42]
-        sbf = edges.src['rbf_env'] * cbf  # [None, 42]
+        # Notice: it's dst, not src
+        sbf = edges.dst['rbf_env'] * cbf  # [None, 42]
         return {'sbf': sbf}
     
     def forward(self, g, l_g):
@@ -135,8 +135,6 @@ class DimeNetPP(nn.Module):
         # Output block
         P = self.output_blocks[0](g)  # [batch_size, num_targets]
         # Prepare sbf feature before the following blocks
-        print('g: ', g)
-        print('P: ', P)
         for k, v in g.edata.items():
             l_g.ndata[k] = v
 

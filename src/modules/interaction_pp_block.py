@@ -88,12 +88,10 @@ class InteractionPPBlock(nn.Module):
         for k, v in g.edata.items():
             l_g.ndata[k] = v
 
-        l_g.update_all(self.msg_func, fn.sum('x_kj', 'm_update'))
+        l_g_reverse = dgl.reverse(l_g, copy_edata=True)
+        l_g_reverse.update_all(self.msg_func, fn.sum('x_kj', 'm_update'))
 
-        for k, v in l_g.ndata.items():
-            g.edata[k] = v
-
-        g.edata['m_update'] = self.up_projection(g.edata['m_update'])
+        g.edata['m_update'] = self.up_projection(l_g_reverse.ndata['m_update'])
         if self.activation is not None:
             g.edata['m_update'] = self.activation(g.edata['m_update'])
         # Transformations before skip connection

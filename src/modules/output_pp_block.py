@@ -37,8 +37,9 @@ class OutputPPBlock(nn.Module):
     def forward(self, g):
         with g.local_scope():
             g.edata['tmp'] = g.edata['m'] * self.dense_rbf(g.edata['rbf'])
-            g.update_all(fn.copy_e('tmp', 'x'), fn.sum('x', 't'))
-            g.ndata['t'] = self.up_projection(g.ndata['t'])
+            g_reverse = dgl.reverse(g, copy_edata=True)
+            g_reverse.update_all(fn.copy_e('tmp', 'x'), fn.sum('x', 't'))
+            g.ndata['t'] = self.up_projection(g_reverse.ndata['t'])
             
             for layer in self.dense_layers:
                 g.ndata['t'] = layer(g.ndata['t'])

@@ -102,11 +102,9 @@ def evaluate(device, model, valid_loader):
     for g, l_g, labels in valid_loader:
         g = g.to(device)
         l_g = l_g.to(device)
-        print('targets: ', labels)
         logits = model(g, l_g)
         labels_all.extend(labels)
         predictions_all.extend(logits.view(-1,).cpu().numpy())
-        break
     
     return np.array(predictions_all), np.array(labels_all)
 
@@ -204,6 +202,7 @@ def main(model_cnf):
         predictions, labels = evaluate(device, model, test_loader)
         test_mae = mean_absolute_error(labels, predictions)
         logger.info(f'Test MAE {test_mae:.4f}')
+
         return
     # define loss function and optimization
     loss_fn = nn.L1Loss()
