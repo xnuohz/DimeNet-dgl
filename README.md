@@ -59,13 +59,15 @@ num_valid         int   Number of valid samples.                        Default 
 data_seed         int   Random seed.                                    Default is 42
 lr                float Learning rate.                                  Default is 0.001
 weight_decay      float Weight decay.                                   Default is 0.0001
-ema_decay         float EMA decay.                                      Default is 0.999
+ema_decay         float EMA decay.                                      Default is 0.
 batch_size        int   Batch size.                                     Default is 100
-epochs            int   Training epochs.                                Default is 800
+epochs            int   Training epochs.                                Default is 300
 early_stopping    int   Patient epochs to wait before early stopping.   Default is 20
 num_workers       int   Number of subprocesses to use for data loading. Default is 18
 gpu               int   GPU index.                                      Default is 0, using CUDA:0
 interval          int   Time intervals for model evaluation.            Default is 50
+step-size         int   Period of learning rate decay.                  Default is 100.
+gamma             float Factor of learning rate decay.                  Default is 0.3.
 ```
 
 ###### Examples
@@ -82,17 +84,18 @@ python src/convert_tf_ckpt_to_pytorch.py --model-cnf src/config/dimenet_pp.yaml 
 
 ### Performance
 
-- batch size is different
-- linear learning rate warm-up is not used
-- exponential learning rate decay is not used
-- exponential moving average (EMA) is closed
+- Batch size is different
+- Linear learning rate warm-up is not used
+- Exponential learning rate decay is not used
+- Exponential moving average (EMA) is closed
 
 | Target | mu | alpha | homo | lumo | gap | r2 | zpve | U0 | U | H | G | Cv |
 | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
-| MAE(DimeNet in Table 1)   | 0.0286 | 0.0469 | 27.8 | 19.7 | 34.8 | 0.331 | 1.29 | 8.02 | 7.89 | 8.11 | 8.98 | 0.0249 |
-| MAE(DimeNet++ in Table 2) | 0.0297 | 0.0435 | 24.6 | 19.5 | 32.6 | 0.331 | 1.21 | 6.32 | 6.28 | 6.53 | 7.56 | 0.0230 |
-| MAE(DimeNet++, TF)        | 0.0297/0.033 | 0.0435 | 0.0246 | 0.0195/0.0227 | -/0.0486 | 0.3312 | 0.00121 | 0.0063 | 0.00628 | 0.00653 | 0.00756 | 0.0230 |
-| MAE(DimeNet++, DGL)       | 0.0536 | 0.0726 | 0.0389 | 0.0434 | 0.0568 | 0.6437 | 0.00520 | 0.7269 | 0.0336 | 0.0205 | 0.0477 | 0.0357 |
+| MAE(DimeNet in Table 1)      | 0.0286 | 0.0469 | 27.8 | 19.7 | 34.8 | 0.331 | 1.29 | 8.02 | 7.89 | 8.11 | 8.98 | 0.0249 |
+| MAE(DimeNet++ in Table 2)    | 0.0297 | 0.0435 | 24.6 | 19.5 | 32.6 | 0.331 | 1.21 | 6.32 | 6.28 | 6.53 | 7.56 | 0.0230 |
+| MAE(DimeNet++, TF, pretrain) | 0.0297 | 0.0435 | 0.0246 | 0.0195 | -      | 0.3312 | 0.00121 | 0.0063 | 0.00628 | 0.00653 | 0.00756 | 0.0230 |
+| MAE(DimeNet++, TF, scratch)  | 0.0330 |        |        | 0.0227 | 0.0486 |        |         |        |         |         |         |        |
+| MAE(DimeNet++, DGL)          | 0.0326 | 0.0537 | 0.0311 | 0.0255 | 0.0490 | 0.4801 | 0.0043 | 0.0141 | 0.0109 | 0.0117 | 0.0150 | 0.0254 |
 
 ### Speed
 
