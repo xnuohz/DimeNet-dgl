@@ -1,12 +1,8 @@
-import sympy as sym
 import torch
 import torch.nn as nn
-import dgl
 import dgl.function as fn
 
 from modules.residual_layer import ResidualLayer
-from modules.basis_utils import bessel_basis, real_sph_harm
-from modules.envelope import Envelope
 from modules.initializers import GlorotOrthogonal
 
 class InteractionBlock(nn.Module):
@@ -14,7 +10,6 @@ class InteractionBlock(nn.Module):
                  emb_size,
                  num_radial,
                  num_spherical,
-                 envelope_exponent,
                  num_bilinear,
                  num_before_skip,
                  num_after_skip,
@@ -51,7 +46,7 @@ class InteractionBlock(nn.Module):
         GlorotOrthogonal(self.final_before_skip.weight)
 
     def edge_transfer(self, edges):
-        # Transform via Bessel basis
+        # Transform from Bessel basis to dence vector
         rbf = self.dense_rbf(edges.data['rbf'])
         # Initial transformation
         x_ji = self.dense_ji(edges.data['m'])
@@ -68,13 +63,12 @@ class InteractionBlock(nn.Module):
         # Apply bilinear layer to interactions and basis function activation
         # [None, 8] * [128, 8, 128] * [None, 128] -> [None, 128]
         x_kj = torch.einsum("wj,wl,ijl->wi", sbf, edges.src['x_kj'], self.W_bilin)
-        # x_kj = self.bilinear(sbf, edges.src['x_kj'])
         return {'x_kj': x_kj}
 
     def forward(self, g, l_g):
         g.apply_edges(self.edge_transfer)
         
-        # node means edge and edge means node in original graph
+        # nodes correspond to edges and edges correspond to nodes in the original graphs
         # node: d, rbf, o, rbf_env, x_kj, x_ji
         for k, v in g.edata.items():
             l_g.ndata[k] = v

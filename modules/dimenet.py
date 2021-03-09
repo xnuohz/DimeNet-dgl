@@ -1,39 +1,33 @@
-import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from modules.activations import swish
 from modules.bessel_basis_layer import BesselBasisLayer
 from modules.spherical_basis_layer import SphericalBasisLayer
 from modules.embedding_block import EmbeddingBlock
-from modules.output_pp_block import OutputPPBlock
-from modules.interaction_pp_block import InteractionPPBlock
+from modules.output_block import OutputBlock
+from modules.interaction_block import InteractionBlock
 
-class DimeNetPP(nn.Module):
+class DimeNet(nn.Module):
     """
-    DimeNet++ model.
+    DimeNet model.
 
     Parameters
     ----------
     emb_size
-        Embedding size used for the messages
-    out_emb_size
-        Embedding size used for atoms in the output block
-    int_emb_size
-        Embedding size used for interaction triplets
-    basis_emb_size
-        Embedding size used inside the basis transformation
+        Embedding size used throughout the model
     num_blocks
         Number of building blocks to be stacked
+    num_bilinear
+        Third dimension of the bilinear layer tensor
     num_spherical
         Number of spherical harmonics
     num_radial
         Number of radial basis functions
-    envelope_exponent
-        Shape of the smooth cutoff
     cutoff
         Cutoff distance for interatomic interactions
+    envelope_exponent
+        Shape of the smooth cutoff
     num_before_skip
         Number of residual layers in interaction block before skip connection
     num_after_skip
@@ -44,15 +38,13 @@ class DimeNetPP(nn.Module):
         Number of targets to predict
     activation
         Activation function
-    extensive
-        Whether the output should be extensive (proportional to the number of atoms)
+    output_init
+        Initial function in output block
     """
     def __init__(self,
                  emb_size,
-                 out_emb_size,
-                 int_emb_size,
-                 basis_emb_size,
                  num_blocks,
+                 num_bilinear,
                  num_spherical,
                  num_radial,
                  cutoff=5.0,
@@ -62,9 +54,8 @@ class DimeNetPP(nn.Module):
                  num_dense_output=3,
                  num_targets=12,
                  activation=swish,
-                 extensive=True,
                  output_init=nn.init.zeros_):
-        super(DimeNetPP, self).__init__()
+        super(DimeNet, self).__init__()
 
         self.num_blocks = num_blocks
         self.num_radial = num_radial
@@ -89,27 +80,23 @@ class DimeNetPP(nn.Module):
         
         # output block
         self.output_blocks = nn.ModuleList({
-            OutputPPBlock(emb_size=emb_size,
-                          out_emb_size=out_emb_size,
-                          num_radial=num_radial,
-                          num_dense=num_dense_output,
-                          num_targets=num_targets,
-                          activation=activation,
-                          extensive=extensive,
-                          output_init=output_init) for _ in range(num_blocks + 1)
+            OutputBlock(emb_size=emb_size,
+                        num_radial=num_radial,
+                        num_dense=num_dense_output,
+                        num_targets=num_targets,
+                        activation=activation,
+                        output_init=output_init) for _ in range(num_blocks + 1)
         })
 
         # interaction block
         self.interaction_blocks = nn.ModuleList({
-            InteractionPPBlock(emb_size=emb_size,
-                               int_emb_size=int_emb_size,
-                               basis_emb_size=basis_emb_size,
-                               num_radial=num_radial,
-                               num_spherical=num_spherical,
-                               envelope_exponent=envelope_exponent,
-                               num_before_skip=num_before_skip,
-                               num_after_skip=num_after_skip,
-                               activation=activation) for _ in range(num_blocks)
+            InteractionBlock(emb_size=emb_size,
+                             num_radial=num_radial,
+                             num_spherical=num_spherical,
+                             num_bilinear=num_bilinear,
+                             num_before_skip=num_before_skip,
+                             num_after_skip=num_after_skip,
+                             activation=activation) for _ in range(num_blocks)
         })
     
     def edge_init(self, edges):
@@ -123,8 +110,7 @@ class DimeNetPP(nn.Module):
         cbf = [f(angle) for f in self.sbf_layer.get_sph_funcs()]
         cbf = torch.stack(cbf, dim=1)  # [None, 7]
         cbf = cbf.repeat_interleave(self.num_radial, dim=1)  # [None, 42]
-        # Notice: it's dst, not src
-        sbf = edges.dst['rbf_env'] * cbf  # [None, 42]
+        sbf = edges.src['rbf_env'] * cbf  # [None, 42]
         return {'sbf': sbf}
     
     def forward(self, g, l_g):

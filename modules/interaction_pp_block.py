@@ -1,12 +1,8 @@
-import sympy as sym
-import torch
 import torch.nn as nn
 import dgl
 import dgl.function as fn
 
 from modules.residual_layer import ResidualLayer
-from modules.basis_utils import bessel_basis, real_sph_harm
-from modules.envelope import Envelope
 from modules.initializers import GlorotOrthogonal
 
 class InteractionPPBlock(nn.Module):
@@ -16,7 +12,6 @@ class InteractionPPBlock(nn.Module):
                  basis_emb_size,
                  num_radial,
                  num_spherical,
-                 envelope_exponent,
                  num_before_skip,
                  num_after_skip,
                  activation=None):
@@ -59,7 +54,7 @@ class InteractionPPBlock(nn.Module):
         GlorotOrthogonal(self.up_projection.weight)
 
     def edge_transfer(self, edges):
-        # Transform via Bessel basis
+        # Transform from Bessel basis to dense vector
         rbf = self.dense_rbf1(edges.data['rbf'])
         rbf = self.dense_rbf2(rbf)
         # Initial transformation
@@ -83,7 +78,7 @@ class InteractionPPBlock(nn.Module):
     def forward(self, g, l_g):
         g.apply_edges(self.edge_transfer)
         
-        # node means edge and edge means node in original graph
+        # nodes correspond to edges and edges correspond to nodes in the original graphs
         # node: d, rbf, o, rbf_env, x_kj, x_ji
         for k, v in g.edata.items():
             l_g.ndata[k] = v

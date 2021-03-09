@@ -24,19 +24,19 @@ def split_dataset(dataset, num_train, num_valid, shuffle=False, random_state=Non
     Parameters
     ----------
     dataset
-        We assume ``len(dataset)`` gives the number of datapoints and ``dataset[i]``
+        We assume that ``len(dataset)`` gives the number of datapoints and ``dataset[i]``
         gives the ith datapoint.
     num_train : int
-        Number of training datapoints
+        Number of training datapoints.
     num_valid : int
-        Number of validation datapoints
+        Number of validation datapoints.
     shuffle : bool, optional
         By default we perform a consecutive split of the dataset. If True,
         we will first randomly shuffle the dataset.
     random_state : None, int or array_like, optional
         Random seed used to initialize the pseudo-random number generator.
-        Can be any integer between 0 and 2**32 - 1 inclusive, an array
-        (or other sequence) of such integers, or None (the default).
+        This can be any integer between 0 and 2^32 - 1 inclusive, an array
+        (or other sequence) of such integers, or None (the default value).
         If seed is None, then RandomState will try to read data from /dev/urandom
         (or the Windows analogue) if available or seed from the clock otherwise.
 
@@ -117,9 +117,10 @@ def main(model_cnf):
     logger.info(f'Model params: {model_params}')
     logger.info(f'Train params: {train_params}')
 
-    if model_params['output_init'] == 'zeros':
+    if model_params['targets'] in ['mu', 'homo', 'lumo', 'gap', 'zpve']:
         model_params['output_init'] = nn.init.zeros_
     else:
+        # 'GlorotOrthogonal' for alpha, R2, U0, U, H, G, and Cv
         model_params['output_init'] = GlorotOrthogonal
 
     logger.info('Loading Data Set')
@@ -245,7 +246,7 @@ def main(model_cnf):
         scheduler.step()
 
     logger.info('Testing')
-    predictions, labels = evaluate(device, ema_model, test_loader)
+    predictions, labels = evaluate(device, best_model, test_loader)
     test_mae = mean_absolute_error(labels, predictions)
     logger.info('Test MAE {:.4f}'.format(test_mae))
 
