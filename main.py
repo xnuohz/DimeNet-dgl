@@ -6,13 +6,14 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import dgl
+import os
 
 from logzero import logger
 from pathlib import Path
 from ruamel.yaml import YAML
 from torch.utils.data import DataLoader
 from dgl.data.utils import Subset
-from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 from qm9 import QM9
 from modules.initializers import GlorotOrthogonal
 from modules.dimenet import DimeNet
@@ -245,10 +246,19 @@ def main(model_cnf):
         
         scheduler.step()
 
+    # Save model for the prediction
+    save_path = train_params['save_path']
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+
+    torch.save(best_model.state_dict(), f'{save_path}/{model_name}.pt')
+    
+    # Evaluate model on test dataset
     logger.info('Testing')
     predictions, labels = evaluate(device, best_model, test_loader)
     test_mae = mean_absolute_error(labels, predictions)
-    logger.info('Test MAE {:.4f}'.format(test_mae))
+    test_mape = mean_absolute_percentage_error(labels, predictions)
+    logger.info(f'MAE: {test_mae:.4f} | MAPE: {test_mape:.4f}')
 
 if __name__ == "__main__":
     main()

@@ -142,3 +142,6 @@ Icon
 /pretrained
 __pycache__/
 *.lprof
+
+# my
+*.pt

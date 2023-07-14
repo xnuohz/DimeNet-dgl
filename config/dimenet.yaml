@@ -29,6 +29,7 @@ train:
   interval: 50
   step_size: 100
   gamma: 0.3
+  save_path: 'saved_model'
 
 pretrain:
   flag: False
